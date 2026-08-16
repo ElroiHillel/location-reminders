@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "location-reminders",
+    "slug": "location-reminders",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "plugins": [
+      "expo-asset",
+      "expo-notifications"
+    ],
+    "android": {
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_CONNECT",
+        "BLUETOOTH_SCAN",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "ios": {
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "משמש לזיהוי חיבור וניתוק ממכשירי בלוטות' (כמו הרכב) עבור תזכורות.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "bluetooth-acl-listener",
+  "version": "0.1.0",
+  "description": "Local Expo module that listens for system-wide Android Bluetooth Classic ACL connect/disconnect broadcasts (e.g. auto-connecting to a car), for already-paired devices — not just sockets opened by this app.",
+  "main": "index.ts",
+  "types": "index.ts",
+  "license": "UNLICENSED",
+  "private": true
+}
