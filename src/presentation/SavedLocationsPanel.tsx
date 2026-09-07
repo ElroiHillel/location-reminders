@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { SavedLocation } from "../domain/models/SavedLocation";
 import { SavedLocationsPanelProps } from "./types";
+import { useTheme } from "./theme/ThemeContext";
+import { spacing, radii, typography } from "./theme/tokens";
+import { hapticLight } from "./theme/haptics";
 
 export function SavedLocationsPanel({
   locations,
@@ -8,6 +10,9 @@ export function SavedLocationsPanel({
   onSelectLocation,
   onDeleteLocation,
 }: SavedLocationsPanelProps) {
+  const { theme } = useTheme();
+  const styles = createStyles(theme);
+
   if (locations.length === 0) {
     return <Text style={styles.emptyState}>אין מיקומים שמורים עדיין.</Text>;
   }
@@ -19,11 +24,11 @@ export function SavedLocationsPanel({
         return (
           <Pressable
             key={location.id}
-            onPress={() => onSelectLocation(location)}
+            onPress={() => { hapticLight(); onSelectLocation(location); }}
             style={[styles.card, isSelected && styles.cardSelected]}
           >
             <View style={styles.row}>
-              <Pressable onPress={() => onDeleteLocation(location.id)} style={styles.deleteButton}>
+              <Pressable onPress={() => onDeleteLocation(location.id)} style={styles.deleteButton} hitSlop={6}>
                 <Text style={styles.deleteText}>מחיקה</Text>
               </Pressable>
               <View style={styles.textBlock}>
@@ -41,57 +46,17 @@ export function SavedLocationsPanel({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: 10,
-  },
-  emptyState: {
-    color: "#9AA8BA",
-    textAlign: "right",
-    paddingVertical: 10,
-  },
-  card: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#1E3045",
-    backgroundColor: "#0E1827",
-    padding: 12,
-  },
-  cardSelected: {
-    borderColor: "#7CDBB6",
-    backgroundColor: "#102033",
-  },
-  row: {
-    flexDirection: "row-reverse",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  textBlock: {
-    flex: 1,
-    alignItems: "flex-end",
-    gap: 4,
-  },
-  label: {
-    color: "#F4F7FB",
-    fontSize: 16,
-    fontWeight: "800",
-    textAlign: "right",
-  },
-  meta: {
-    color: "#9AA8BA",
-    textAlign: "right",
-    fontSize: 12,
-  },
-  deleteButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "#3A1D28",
-  },
-  deleteText: {
-    color: "#FFB8CB",
-    fontWeight: "700",
-    fontSize: 12,
-  },
-});
+function createStyles(theme: ReturnType<typeof useTheme>["theme"]) {
+  return StyleSheet.create({
+    container: { gap: spacing.sm },
+    emptyState: { color: theme.textSecondary, textAlign: "right", paddingVertical: spacing.sm },
+    card: { borderRadius: radii.md, borderWidth: 1, borderColor: theme.glassBorder, backgroundColor: theme.chip, padding: spacing.md },
+    cardSelected: { borderColor: theme.accent, backgroundColor: theme.chipActive },
+    row: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.sm },
+    textBlock: { flex: 1, alignItems: "flex-end", gap: 4 },
+    label: { color: theme.text, ...typography.label, fontWeight: "800", textAlign: "right" },
+    meta: { color: theme.textMuted, ...typography.caption, textAlign: "right" },
+    deleteButton: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radii.pill, backgroundColor: theme.dangerSoft },
+    deleteText: { color: theme.danger, ...typography.caption, fontWeight: "700" },
+  });
+}
