@@ -16,6 +16,8 @@
       "expo-audio"
     ],
     "android": {
+      "package": "com.elroihillel.locationreminders",
+      "versionCode": 1,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
