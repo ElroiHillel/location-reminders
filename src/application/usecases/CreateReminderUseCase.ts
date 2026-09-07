@@ -12,6 +12,8 @@ import { Reminder, ResolvedLocation } from "../../domain/models/Reminder";
 import { SavedLocation } from "../../domain/models/SavedLocation";
 import { TriggerType } from "../../domain/models/TriggerType";
 import { UserSettings } from "../../domain/models/UserSettings";
+import { NotificationStyle } from "../../domain/models/NotificationStyle";
+import { normalizeLocationQueryForGeocoding } from "../../domain/services/normalizeLocationQuery";
 
 export interface CreateReminderUseCaseInput {
   title: string;
@@ -24,6 +26,7 @@ export interface CreateReminderUseCaseInput {
   targetBluetoothDeviceId?: string | null;
   manualResolvedLocation?: ResolvedLocation | null;
   confidenceThreshold?: number;
+  notificationStyle?: NotificationStyle;
 }
 
 export interface CreateReminderUseCaseResult {
@@ -80,6 +83,7 @@ export class CreateReminderUseCase {
       parsedLocationQuery,
       resolvedLocation,
       radiusMeters,
+      notificationStyle: input.notificationStyle ?? userSettings?.defaultNotificationStyle ?? NotificationStyle.SOUND,
       status: "ACTIVE",
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -175,7 +179,9 @@ export class CreateReminderUseCase {
       return null;
     }
 
-    const geocodedLocation: GeocodeResult | null = await this.geocodingService.geocode({ text: parsedLocationQuery });
+    const geocodedLocation: GeocodeResult | null = await this.geocodingService.geocode({
+      text: normalizeLocationQueryForGeocoding(parsedLocationQuery),
+    });
 
     if (!geocodedLocation) {
       return null;

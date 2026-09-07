@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { UserSettingsRepository } from "../../domain/interfaces/UserSettingsRepository";
 import { UserSettings } from "../../domain/models/UserSettings";
+import { NotificationStyle } from "../../domain/models/NotificationStyle";
 import { isNullish } from "./storage";
 
 const STORAGE_KEY = "location-reminders:user-settings";
@@ -11,7 +12,10 @@ const DEFAULT_SETTINGS: UserSettings = {
   defaultRadiusNearby: 300,
   nlpProviderPreference: "hybrid",
   geminiApiKey: "",
+  defaultNotificationStyle: NotificationStyle.SOUND,
 };
+
+const VALID_NOTIFICATION_STYLES = new Set<string>(Object.values(NotificationStyle));
 
 export class AsyncStorageUserSettingsRepository implements UserSettingsRepository {
   constructor(private readonly initialSettings: UserSettings | null = null) {}
@@ -51,6 +55,10 @@ export class AsyncStorageUserSettingsRepository implements UserSettingsRepositor
           : "hybrid",
       geminiApiKey: settings.geminiApiKey ?? "",
       geminiModel: settings.geminiModel ?? "",
+      defaultNotificationStyle:
+        settings.defaultNotificationStyle && VALID_NOTIFICATION_STYLES.has(settings.defaultNotificationStyle)
+          ? settings.defaultNotificationStyle
+          : DEFAULT_SETTINGS.defaultNotificationStyle,
     };
   }
 }

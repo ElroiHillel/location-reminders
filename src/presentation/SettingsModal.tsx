@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Linking, Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SettingsModalProps } from "./types";
 import { UserSettings } from "../domain/models/UserSettings";
+import { getNotificationStyleDisplay, NOTIFICATION_STYLE_OPTIONS } from "./notificationStyleDisplay";
 
 const GEMINI_KEY_URL = "https://aistudio.google.com/apikey";
 const DEFAULT_MODEL_PLACEHOLDER = "gemini-flash-latest";
@@ -17,6 +18,7 @@ export function SettingsModal({ visible, initialSettings, onCancel, onSave }: Se
   const [isKeyVisible, setIsKeyVisible] = useState(false);
   const [mode, setMode] = useState<UserSettings["nlpProviderPreference"]>(initialSettings.nlpProviderPreference);
   const [model, setModel] = useState(initialSettings.geminiModel ?? "");
+  const [notificationStyle, setNotificationStyle] = useState(initialSettings.defaultNotificationStyle);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -24,6 +26,7 @@ export function SettingsModal({ visible, initialSettings, onCancel, onSave }: Se
       setApiKey(initialSettings.geminiApiKey ?? "");
       setMode(initialSettings.nlpProviderPreference);
       setModel(initialSettings.geminiModel ?? "");
+      setNotificationStyle(initialSettings.defaultNotificationStyle);
       setIsKeyVisible(false);
     }
   }, [visible, initialSettings]);
@@ -31,7 +34,13 @@ export function SettingsModal({ visible, initialSettings, onCancel, onSave }: Se
   async function handleSave() {
     setIsSaving(true);
     try {
-      await onSave({ ...initialSettings, geminiApiKey: apiKey.trim(), nlpProviderPreference: mode, geminiModel: model.trim() });
+      await onSave({
+        ...initialSettings,
+        geminiApiKey: apiKey.trim(),
+        nlpProviderPreference: mode,
+        geminiModel: model.trim(),
+        defaultNotificationStyle: notificationStyle,
+      });
       onCancel();
     } finally {
       setIsSaving(false);
@@ -108,6 +117,27 @@ export function SettingsModal({ visible, initialSettings, onCancel, onSave }: Se
                 >
                   <Text style={[styles.modeLabel, isSelected && styles.modeLabelSelected]}>{option.label}</Text>
                   <Text style={styles.modeHelp}>{option.help}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>ברירת מחדל להתראה</Text>
+            <Text style={styles.sectionHelp}>אפשר לשנות לכל תזכורת בנפרד בעת יצירתה או עריכתה.</Text>
+            {NOTIFICATION_STYLE_OPTIONS.map((option) => {
+              const meta = getNotificationStyleDisplay(option);
+              const isSelected = notificationStyle === option;
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() => setNotificationStyle(option)}
+                  style={[styles.modeCard, isSelected && styles.modeCardSelected]}
+                >
+                  <Text style={[styles.modeLabel, isSelected && styles.modeLabelSelected]}>
+                    {meta.icon} {meta.label}
+                  </Text>
+                  <Text style={styles.modeHelp}>{meta.help}</Text>
                 </Pressable>
               );
             })}

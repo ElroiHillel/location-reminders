@@ -1,4 +1,5 @@
 import { TriggerType } from "./TriggerType";
+import { NotificationStyle } from "./NotificationStyle";
 
 export type ReminderStatus = "DRAFT" | "ACTIVE" | "TRIGGERED" | "COMPLETED" | "CANCELLED";
 
@@ -18,6 +19,7 @@ export interface Reminder {
   parsedLocationQuery: string | null;
   resolvedLocation: ResolvedLocation | null;
   radiusMeters: number;
+  notificationStyle: NotificationStyle;
   status: ReminderStatus;
   createdAt: Date;
   updatedAt: Date;

@@ -1,3 +1,5 @@
+import { NotificationStyle } from "./NotificationStyle";
+
 export interface UserSettings {
   defaultRadiusEnter: number;
   defaultRadiusExit: number;
@@ -5,4 +7,5 @@ export interface UserSettings {
   nlpProviderPreference: "local" | "gemini" | "hybrid";
   geminiApiKey?: string;
   geminiModel?: string;
+  defaultNotificationStyle: NotificationStyle;
 }

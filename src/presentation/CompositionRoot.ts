@@ -19,6 +19,7 @@ import { TriggerType } from "../domain/models/TriggerType";
 import { AppBootstrapState } from "./types";
 import { Reminder } from "../domain/models/Reminder";
 import { UserSettings } from "../domain/models/UserSettings";
+import { NotificationStyle } from "../domain/models/NotificationStyle";
 import { ensureNotificationPermission } from "../infrastructure/notifications/NotificationService";
 
 class DynamicNlpService implements NaturalLanguageParserService {
@@ -74,6 +75,7 @@ export class CompositionRoot {
       defaultRadiusNearby: 300,
       nlpProviderPreference: "hybrid",
       geminiApiKey: "",
+      defaultNotificationStyle: NotificationStyle.SOUND,
     });
 
     this.activeUserSettings = {
@@ -82,6 +84,7 @@ export class CompositionRoot {
       defaultRadiusNearby: 300,
       nlpProviderPreference: "hybrid",
       geminiApiKey: "",
+      defaultNotificationStyle: NotificationStyle.SOUND,
     };
 
     this.activeNlpService = this.providerFactory.createNlpService({

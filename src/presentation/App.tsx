@@ -22,12 +22,14 @@ import { SavedLocationsModal } from "./SavedLocationsModal";
 import { BluetoothDevicesModal } from "./BluetoothDevicesModal";
 import { LocationSelection, ReminderEditorDraft } from "./types";
 import { getTriggerDisplay, isBluetoothTrigger, isSpatialTrigger } from "./triggerDisplay";
+import { getNotificationStyleDisplay } from "./notificationStyleDisplay";
 import { BluetoothDevice } from "../domain/models/BluetoothDevice";
 import { Reminder, ReminderStatus } from "../domain/models/Reminder";
 import { ParserResult } from "../domain/models/ParserResult";
 import { TriggerType } from "../domain/models/TriggerType";
 import { SavedLocation } from "../domain/models/SavedLocation";
 import { UserSettings } from "../domain/models/UserSettings";
+import { NotificationStyle } from "../domain/models/NotificationStyle";
 
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
@@ -43,6 +45,7 @@ const EMPTY_DRAFT: ReminderEditorDraft = {
   parsedLocationQuery: "",
   resolvedLocation: null,
   targetBluetoothDeviceId: null,
+  notificationStyle: NotificationStyle.SOUND,
   status: "ACTIVE",
 };
 
@@ -144,7 +147,11 @@ export default function App() {
     setParserResult(result);
 
     if (result.requiresFallback) {
-      const nextDraft = buildDraftFromParserResult(result, text);
+      const nextDraft = buildDraftFromParserResult(
+        result,
+        text,
+        userSettings?.defaultNotificationStyle ?? NotificationStyle.SOUND,
+      );
       setDraft(nextDraft);
       setEditorMode("create");
       setEditingReminderId(undefined);
@@ -241,6 +248,7 @@ export default function App() {
       isRecurring: nextDraft.isRecurring,
       targetBluetoothDeviceId: nextDraft.targetBluetoothDeviceId,
       manualResolvedLocation: nextDraft.resolvedLocation,
+      notificationStyle: nextDraft.notificationStyle,
     });
 
     await refreshReminders();
@@ -271,6 +279,7 @@ export default function App() {
         isRecurring: nextDraft.isRecurring,
         targetBluetoothDeviceId: nextDraft.targetBluetoothDeviceId,
         manualResolvedLocation: nextDraft.resolvedLocation,
+        notificationStyle: nextDraft.notificationStyle,
       });
 
       await refreshReminders();
@@ -295,6 +304,7 @@ export default function App() {
         radiusMeters: nextDraft.radiusMeters,
         isRecurring: nextDraft.isRecurring,
         targetBluetoothDeviceId: nextDraft.targetBluetoothDeviceId,
+        notificationStyle: nextDraft.notificationStyle,
         status: nextDraft.status,
       },
     });
@@ -374,7 +384,7 @@ export default function App() {
     setEditingReminderId(undefined);
     setParserResult(null);
     setPendingCreateDraft(null);
-    setDraft(EMPTY_DRAFT);
+    setDraft({ ...EMPTY_DRAFT, notificationStyle: userSettings?.defaultNotificationStyle ?? NotificationStyle.SOUND });
     setIsEditorVisible(true);
   }
 
@@ -392,6 +402,7 @@ export default function App() {
       parsedLocationQuery: reminder.parsedLocationQuery ?? "",
       resolvedLocation: reminder.resolvedLocation,
       targetBluetoothDeviceId: reminder.targetBluetoothDeviceId,
+      notificationStyle: reminder.notificationStyle,
       status: reminder.status,
     });
     setIsEditorVisible(true);
@@ -506,9 +517,12 @@ export default function App() {
             return (
               <Pressable style={styles.reminderCard} onPress={() => openEditModal(item)}>
                 <View style={styles.reminderCardTopRow}>
-                  <View style={[styles.triggerBadge, { backgroundColor: trigger.backgroundColor }]}>
-                    <Text style={styles.triggerBadgeIcon}>{trigger.icon}</Text>
-                    <Text style={[styles.triggerBadgeText, { color: trigger.color }]}>{trigger.shortLabel}</Text>
+                  <View style={styles.reminderCardBadges}>
+                    <View style={[styles.triggerBadge, { backgroundColor: trigger.backgroundColor }]}>
+                      <Text style={styles.triggerBadgeIcon}>{trigger.icon}</Text>
+                      <Text style={[styles.triggerBadgeText, { color: trigger.color }]}>{trigger.shortLabel}</Text>
+                    </View>
+                    <Text style={styles.notificationStyleIcon}>{getNotificationStyleDisplay(item.notificationStyle).icon}</Text>
                   </View>
                   <View style={styles.reminderCardActions}>
                     <Pressable onPress={() => handleDeleteReminder(item)} style={styles.cardIconButton}>
@@ -571,6 +585,7 @@ export default function App() {
             defaultRadiusNearby: 300,
             nlpProviderPreference: "hybrid",
             geminiApiKey: "",
+            defaultNotificationStyle: NotificationStyle.SOUND,
           }
         }
         onCancel={() => setIsSettingsVisible(false)}
@@ -597,7 +612,11 @@ export default function App() {
   );
 }
 
-function buildDraftFromParserResult(parserResult: ParserResult, fallbackTitle: string): ReminderEditorDraft {
+function buildDraftFromParserResult(
+  parserResult: ParserResult,
+  fallbackTitle: string,
+  defaultNotificationStyle: NotificationStyle,
+): ReminderEditorDraft {
   return {
     title: parserResult.action || fallbackTitle,
     action: parserResult.action || fallbackTitle,
@@ -613,6 +632,7 @@ function buildDraftFromParserResult(parserResult: ParserResult, fallbackTitle: s
         }
       : null,
     targetBluetoothDeviceId: parserResult.matchedBluetoothDevice?.id ?? null,
+    notificationStyle: defaultNotificationStyle,
     status: "ACTIVE",
   };
 }
@@ -840,6 +860,14 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  reminderCardBadges: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    gap: 8,
+  },
+  notificationStyleIcon: {
+    fontSize: 14,
   },
   reminderCardActions: {
     flexDirection: "row-reverse",

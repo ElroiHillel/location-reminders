@@ -3,6 +3,7 @@ import { Modal, Pressable, SafeAreaView, ScrollView, StyleSheet, Switch, Text, T
 import Slider from "@react-native-community/slider";
 import { ReminderEditModalProps, ReminderEditorDraft } from "./types";
 import { getTriggerDisplay, isBluetoothTrigger, isSpatialTrigger } from "./triggerDisplay";
+import { getNotificationStyleDisplay, NOTIFICATION_STYLE_OPTIONS } from "./notificationStyleDisplay";
 import { TriggerType } from "../domain/models/TriggerType";
 
 const TRIGGER_OPTIONS: TriggerType[] = [
@@ -103,6 +104,27 @@ export function ReminderEditModal({
                 );
               })}
             </View>
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>סוג התראה</Text>
+            <View style={styles.optionGrid}>
+              {NOTIFICATION_STYLE_OPTIONS.map((styleOption) => {
+                const meta = getNotificationStyleDisplay(styleOption);
+                const isSelected = draft.notificationStyle === styleOption;
+                return (
+                  <Pressable
+                    key={styleOption}
+                    onPress={() => updateDraft({ notificationStyle: styleOption })}
+                    style={[styles.optionPill, isSelected && styles.optionPillSelected]}
+                  >
+                    <Text style={styles.optionIcon}>{meta.icon}</Text>
+                    <Text style={[styles.optionText, isSelected && styles.optionTextSelected]}>{meta.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Text style={styles.fieldHelp}>{getNotificationStyleDisplay(draft.notificationStyle).help}</Text>
           </View>
 
           {isSpatial ? (

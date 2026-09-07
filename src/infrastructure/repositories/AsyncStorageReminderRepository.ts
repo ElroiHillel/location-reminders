@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ReminderRepository } from "../../domain/interfaces/ReminderRepository";
 import { Reminder, ResolvedLocation } from "../../domain/models/Reminder";
+import { NotificationStyle } from "../../domain/models/NotificationStyle";
 import { deserializeDate, isNullish, serializeDate } from "./storage";
 
 type StoredReminder = Omit<Reminder, "createdAt" | "updatedAt" | "resolvedLocation"> & {
@@ -66,6 +67,7 @@ export class AsyncStorageReminderRepository implements ReminderRepository {
   private deserializeReminder(stored: StoredReminder): Reminder {
     return {
       ...stored,
+      notificationStyle: stored.notificationStyle ?? NotificationStyle.SOUND,
       createdAt: deserializeDate(stored.createdAt),
       updatedAt: deserializeDate(stored.updatedAt),
     };

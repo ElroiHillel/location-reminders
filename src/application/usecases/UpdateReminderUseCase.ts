@@ -11,10 +11,11 @@ import { Reminder, ResolvedLocation } from "../../domain/models/Reminder";
 import { SavedLocation } from "../../domain/models/SavedLocation";
 import { TriggerType } from "../../domain/models/TriggerType";
 import { UserSettings } from "../../domain/models/UserSettings";
+import { normalizeLocationQueryForGeocoding } from "../../domain/services/normalizeLocationQuery";
 
 export interface UpdateReminderUseCaseInput {
   reminderId: string;
-  changes: Partial<Pick<Reminder, "title" | "action" | "triggerType" | "parsedLocationQuery" | "resolvedLocation" | "radiusMeters" | "isRecurring" | "targetBluetoothDeviceId" | "status">>;
+  changes: Partial<Pick<Reminder, "title" | "action" | "triggerType" | "parsedLocationQuery" | "resolvedLocation" | "radiusMeters" | "isRecurring" | "targetBluetoothDeviceId" | "status" | "notificationStyle">>;
   confidenceThreshold?: number;
 }
 
@@ -160,7 +161,9 @@ export class UpdateReminderUseCase {
       return { resolvedLocation: null, requiresFallback: true };
     }
 
-    const geocodedLocation: GeocodeResult | null = await this.geocodingService.geocode({ text: parsedLocationQuery });
+    const geocodedLocation: GeocodeResult | null = await this.geocodingService.geocode({
+      text: normalizeLocationQueryForGeocoding(parsedLocationQuery),
+    });
 
     if (!geocodedLocation) {
       return { resolvedLocation: null, requiresFallback: true };

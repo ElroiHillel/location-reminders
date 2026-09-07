@@ -53,6 +53,10 @@ export class GeminiNLPAdapter implements INLPParsingService {
       "Match against the provided saved locations and Bluetooth devices before inventing new entities.",
       "Choose triggerType from ENTER, EXIT, NEARBY, BLUETOOTH_CONNECT, BLUETOOTH_DISCONNECT, or null.",
       "Set requiresFallback to true when confidence is low or the location cannot be resolved confidently.",
+      "For locationTarget, extract ONLY the place itself, formatted exactly as you would type it into a maps search box — this string is sent directly to a geocoder, so quality matters:",
+      "drop grammatical filler words like 'רחוב', 'ליד', 'ב-' as a prefix, and Hebrew prepositions attached to a city name (e.g. 'בחדרה' -> 'חדרה').",
+      "For a business, keep its real name intact (e.g. 'מאפיית לוליטה בחדרה' -> 'מאפיית לוליטה חדרה', not just 'לוליטה חדרה').",
+      "For a street, keep the street name plus city but drop the word 'רחוב' itself (e.g. 'רחוב חי טייב בחדרה' -> 'חי טייב חדרה').",
     ].join(" ");
 
     const contextSummary = {

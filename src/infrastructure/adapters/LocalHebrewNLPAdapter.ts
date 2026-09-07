@@ -6,6 +6,7 @@ import { BluetoothDevice } from "../../domain/models/BluetoothDevice";
 import { ParserResult } from "../../domain/models/ParserResult";
 import { SavedLocation } from "../../domain/models/SavedLocation";
 import { TriggerType } from "../../domain/models/TriggerType";
+import { normalizeLocationQueryForGeocoding } from "../../domain/services/normalizeLocationQuery";
 
 type LocationCategory = "HOME" | "WORK" | "PARENTS" | "STORE" | "GYM" | "VEHICLE";
 
@@ -69,6 +70,8 @@ const NEARBY_PATTERNS = [
   "בקרבת",
   "עובר ליד",
   "עוברת ליד",
+  "עובר ב",
+  "עוברת ב",
   "מתקרב ל",
   "מתקרבת ל",
   "כשמתקרב",
@@ -362,14 +365,38 @@ export class LocalHebrewNLPAdapter implements NaturalLanguageParserService {
       return CANONICAL_TARGET_BY_CATEGORY[category];
     }
 
-    const markers = ["כש", "כאשר", "ברגע", "בהגעה", "עם ההגעה", "ליד", "קרוב", "ביציאה", "בכניסה"];
-    const marker = markers.find((item) => text.includes(item));
-    if (!marker) {
+    const allTriggerPatterns = [
+      ...VEHICLE_CONNECT_PATTERNS,
+      ...VEHICLE_DISCONNECT_PATTERNS,
+      ...ENTER_PATTERNS,
+      ...EXIT_PATTERNS,
+      ...NEARBY_PATTERNS,
+    ];
+
+    const triggerMatch = this.findFirstPhraseMatch(text, allTriggerPatterns);
+    if (!triggerMatch) {
       return null;
     }
 
-    const parts = text.split(marker);
-    return parts[1]?.trim() || null;
+    const after = text.slice(triggerMatch.index + triggerMatch.length).trim();
+    const before = text.slice(0, triggerMatch.index).trim();
+    const rawTarget = after || before;
+
+    return rawTarget ? normalizeLocationQueryForGeocoding(this.stripAttachedPreposition(rawTarget)) : null;
+  }
+
+  private stripAttachedPreposition(phrase: string): string {
+    const tokens = phrase.split(" ").filter(Boolean);
+    if (tokens.length === 0) {
+      return phrase;
+    }
+
+    const [first, ...rest] = tokens;
+    if (first.length > 2 && /^[לבמ]/.test(first)) {
+      return [first.slice(1), ...rest].join(" ");
+    }
+
+    return tokens.join(" ");
   }
 
   private removePhrase(text: string, phrase: string): string {

@@ -4,6 +4,7 @@ import { ResolvedLocation, Reminder, ReminderStatus } from "../domain/models/Rem
 import { SavedLocation } from "../domain/models/SavedLocation";
 import { UserSettings } from "../domain/models/UserSettings";
 import { TriggerType } from "../domain/models/TriggerType";
+import { NotificationStyle } from "../domain/models/NotificationStyle";
 
 export interface LocationSelection extends ResolvedLocation {}
 
@@ -16,6 +17,7 @@ export interface ReminderEditorDraft {
   parsedLocationQuery: string;
   resolvedLocation: LocationSelection | null;
   targetBluetoothDeviceId: string | null;
+  notificationStyle: NotificationStyle;
   status: ReminderStatus;
 }
 
