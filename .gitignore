@@ -1,8 +1,13 @@
 .env
 node_modules/
 .expo/
-android/
-ios/
+# Only the top-level prebuild output — NOT modules/*/android|ios native sources
+/android
+/ios
 dist/
 web-build/
 *.log
+# Gradle / build caches (including inside local native modules)
+.gradle/
+modules/*/android/build/
+modules/*/ios/build/

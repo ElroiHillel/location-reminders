@@ -721,8 +721,8 @@ function LinearGradientCircle({ colors }: { colors: readonly [string, string] })
 const micStyles = StyleSheet.create({
   wrap: { width: 132, height: 132, alignItems: "center", justifyContent: "center" },
   gradientWrap: { width: 124, height: 124, borderRadius: 62, overflow: "hidden" },
-  gradient: { ...StyleSheet.absoluteFillObject },
-  center: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center" },
+  gradient: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+  center: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
   icon: { fontSize: 48 },
 });
 

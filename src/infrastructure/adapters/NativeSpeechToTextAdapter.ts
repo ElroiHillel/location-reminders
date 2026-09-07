@@ -1,18 +1,17 @@
 import { GoogleGenAI } from "@google/genai";
-import { Audio } from "expo-av";
-import { Platform } from "react-native";
+import { AudioModule, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync } from "expo-audio";
+import type { AudioRecorder } from "expo-audio";
 import * as FileSystem from "expo-file-system/legacy";
 import { AudioInput, TranscriptionResult } from "../../domain/interfaces/types";
 import { ISpeechToTextService } from "../contracts/ServiceContracts";
 import { InfrastructureEnvironment } from "../config/environment";
 import { callGeminiWithRetry } from "./geminiRetry";
 
-// Both recording presets actually used below (LOW_QUALITY on iOS, HIGH_QUALITY on Android)
-// produce an MPEG-4/AAC container, i.e. ".m4a", regardless of platform.
+// RecordingPresets.HIGH_QUALITY produces an MPEG-4/AAC container (".m4a") on both platforms.
 const RECORDING_MIME_TYPE = "audio/m4a";
 
 export class NativeSpeechToTextAdapter implements ISpeechToTextService {
-  private recording: Audio.Recording | null = null;
+  private recorder: AudioRecorder | null = null;
   private activeLanguage: string | undefined;
 
   constructor(private readonly environment: InfrastructureEnvironment) {}
@@ -70,40 +69,35 @@ export class NativeSpeechToTextAdapter implements ISpeechToTextService {
   }
 
   async startRecording(language = "he"): Promise<void> {
-    if (this.recording) {
+    if (this.recorder) {
       return;
     }
 
-    const permission = await Audio.requestPermissionsAsync();
+    const permission = await requestRecordingPermissionsAsync();
     if (!permission.granted) {
       throw new Error("Microphone permission was denied.");
     }
 
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
-    });
+    await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
 
-    // Use a preset that is compatible with Gemini and mobile
-    const { recording } = await Audio.Recording.createAsync(
-      Platform.OS === "ios" 
-        ? Audio.RecordingOptionsPresets.LOW_QUALITY 
-        : Audio.RecordingOptionsPresets.HIGH_QUALITY
-    );
-    this.recording = recording;
+    const recorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
+    await recorder.prepareToRecordAsync();
+    recorder.record();
+
+    this.recorder = recorder;
     this.activeLanguage = language;
   }
 
   async stopRecording(): Promise<TranscriptionResult> {
-    const recording = this.recording;
-    if (!recording) {
+    const recorder = this.recorder;
+    if (!recorder) {
       throw new Error("No active recording session.");
     }
 
-    this.recording = null;
+    this.recorder = null;
 
-    await recording.stopAndUnloadAsync();
-    const uri = recording.getURI();
+    await recorder.stop();
+    const uri = recorder.uri;
     if (!uri) {
       throw new Error("Recording completed without a file URI.");
     }

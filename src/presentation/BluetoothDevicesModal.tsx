@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { PermissionsAndroid, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import RNBluetoothClassic from "react-native-bluetooth-classic";
 import { BluetoothDevice } from "../domain/models/BluetoothDevice";
 import { BluetoothDevicesModalProps } from "./types";
 import { isBluetoothAclDetectionSupported } from "../infrastructure/adapters/AndroidBluetoothClassicTriggerService";
@@ -53,6 +52,12 @@ export function BluetoothDevicesModal({ visible, devices, onCancel, onSaveDevice
           return;
         }
       }
+      // Lazy-loaded: this native library is only present in a real build, and is
+      // never touched inside Expo Go (this button is hidden there). Keeping the
+      // import out of module scope avoids loading it at app launch.
+      const RNBluetoothClassic = require("react-native-bluetooth-classic").default as {
+        getBondedDevices: () => Promise<{ name: string; address: string }[]>;
+      };
       const bonded = await RNBluetoothClassic.getBondedDevices();
       setPairedDevices(bonded.map((device) => ({ name: device.name, address: device.address })));
     } catch (error) {
