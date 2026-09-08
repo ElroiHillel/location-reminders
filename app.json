@@ -13,7 +13,17 @@
       "expo-asset",
       "expo-notifications",
       "expo-status-bar",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "-keep class kjd.reactnative.bluetooth.** { *; }\n-keep class expo.modules.bluetoothacllistener.** { *; }\n-dontwarn kjd.reactnative.bluetooth.**"
+          }
+        }
+      ]
     ],
     "android": {
       "package": "com.elroihillel.locationreminders",
