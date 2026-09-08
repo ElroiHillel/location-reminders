@@ -32,6 +32,7 @@ import { TriggerType } from "../domain/models/TriggerType";
 import { SavedLocation } from "../domain/models/SavedLocation";
 import { UserSettings } from "../domain/models/UserSettings";
 import { NotificationStyle } from "../domain/models/NotificationStyle";
+import { takeGeocodingIssue } from "../infrastructure/adapters/geocodingDiagnostics";
 import { ThemeProvider, useTheme } from "./theme/ThemeContext";
 import { ThemePalette, radii, spacing, typography } from "./theme/tokens";
 import { hapticLight, hapticMedium, hapticSelection, hapticSuccess, hapticWarning } from "./theme/haptics";
@@ -203,8 +204,17 @@ function AppInner() {
     setIsManualEntryVisible(false);
 
     if (createResult.requiresFallback) {
+      const issue = takeGeocodingIssue();
       openEditModal(createResult.reminder);
-      setStatusMessage("נשמר, אך צריך להשלים מיקום או מכשיר.");
+      if (issue) {
+        setStatusMessage(issue);
+        Alert.alert(
+          "בעיה בחיפוש המיקום",
+          `${issue}\n\nבדוק שה-Places API מופעל בפרויקט, ש-Billing פעיל, ושהמפתח לא מוגבל ל-"Android apps" (הגבלה כזו חוסמת חיפוש). בינתיים אפשר לבחור את המיקום ידנית על המפה.`,
+        );
+      } else {
+        setStatusMessage("לא נמצא מיקום מדויק — בחר על המפה.");
+      }
       return;
     }
 

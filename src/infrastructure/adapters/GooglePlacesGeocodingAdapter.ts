@@ -1,8 +1,10 @@
 import { GeocodeQuery, GeocodeResult } from "../../domain/interfaces/types";
 import { IGeocodingService } from "../contracts/ServiceContracts";
+import { clearGeocodingIssue, setGeocodingIssue } from "./geocodingDiagnostics";
 
 interface PlacesTextSearchResponse {
   status: string;
+  error_message?: string;
   results?: Array<{
     name?: string;
     formatted_address?: string;
@@ -32,9 +34,21 @@ export class GooglePlacesGeocodingAdapter implements IGeocodingService {
     }
 
     const payload = (await response.json()) as PlacesTextSearchResponse;
-    if (payload.status !== "OK" || !payload.results || payload.results.length === 0) {
+
+    // ZERO_RESULTS is a normal "not found"; other non-OK statuses mean the key
+    // is misconfigured (Places API off, billing off, or a referrer/Android
+    // restriction that blocks REST calls) — surface that so the user can fix it.
+    if (payload.status !== "OK" && payload.status !== "ZERO_RESULTS") {
+      const detail = payload.error_message ? ` — ${payload.error_message}` : "";
+      setGeocodingIssue(`חיפוש Google נכשל (${payload.status})${detail}`);
       return null;
     }
+
+    if (!payload.results || payload.results.length === 0) {
+      return null;
+    }
+
+    clearGeocodingIssue();
 
     const best = payload.results[0];
     const location = best.geometry?.location;

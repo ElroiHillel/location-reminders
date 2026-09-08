@@ -11,6 +11,7 @@ import { GeminiNLPAdapter } from "./adapters/GeminiNLPAdapter";
 import { NativeSpeechToTextAdapter } from "./adapters/NativeSpeechToTextAdapter";
 import { NominatimGeocodingAdapter } from "./adapters/NominatimGeocodingAdapter";
 import { GooglePlacesGeocodingAdapter } from "./adapters/GooglePlacesGeocodingAdapter";
+import { ChainedGeocodingService } from "./adapters/ChainedGeocodingService";
 import { ExpoLocationGeofencingService } from "./adapters/ExpoLocationGeofencingService";
 import { LocalHebrewNLPAdapter } from "./adapters/LocalHebrewNLPAdapter";
 import { HybridNLPAdapter } from "./adapters/HybridNLPAdapter";
@@ -98,11 +99,13 @@ export class ProviderFactory {
   }
 
   createGeocodingService(userSettings?: UserSettings | null): IGeocodingService {
+    const nominatim = new NominatimGeocodingAdapter(this.baseEnvironment);
     const googleKey = userSettings?.googlePlacesApiKey?.trim();
     if (googleKey) {
-      return new GooglePlacesGeocodingAdapter(googleKey);
+      // Google first (finds businesses), Nominatim as a keyless fallback.
+      return new ChainedGeocodingService([new GooglePlacesGeocodingAdapter(googleKey), nominatim]);
     }
-    return new NominatimGeocodingAdapter(this.baseEnvironment);
+    return nominatim;
   }
 
   createSpeechToTextService(userSettings?: UserSettings | null): ISpeechToTextService {
