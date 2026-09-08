@@ -12,7 +12,7 @@ import { Field, TextField, SelectableCard } from "./components/FormControls";
 import { hapticSelection } from "./theme/haptics";
 
 const GEMINI_KEY_URL = "https://aistudio.google.com/apikey";
-const DEFAULT_MODEL_PLACEHOLDER = "gemini-flash-latest";
+const DEFAULT_MODEL_PLACEHOLDER = "gemini-2.5-flash";
 
 const MODE_OPTIONS: { value: UserSettings["nlpProviderPreference"]; label: string; help: string }[] = [
   { value: "hybrid", label: "היברידי (מומלץ)", help: "מנסה קודם ניתוח מקומי חינמי, ופונה ל-Gemini רק כשצריך." },

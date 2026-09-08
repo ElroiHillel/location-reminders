@@ -53,7 +53,7 @@ export function loadInfrastructureEnvironment(): InfrastructureEnvironment {
     speechToTextProvider: readProviderKey(readEnv("EXPO_PUBLIC_SPEECH_TO_TEXT_PROVIDER"), "native"),
     geofencingProvider: readGeofencingProvider(readEnv("EXPO_PUBLIC_GEOFENCING_PROVIDER")),
     geminiApiKey: readEnv("EXPO_PUBLIC_GEMINI_API_KEY") ?? "",
-    geminiModel: readEnv("EXPO_PUBLIC_GEMINI_MODEL") ?? "gemini-flash-latest",
+    geminiModel: readEnv("EXPO_PUBLIC_GEMINI_MODEL") ?? "gemini-2.5-flash",
     nominatimUserAgent: readEnv("EXPO_PUBLIC_NOMINATIM_USER_AGENT") ?? "location-reminders/1.0",
     nominatimEmail: readEnv("EXPO_PUBLIC_NOMINATIM_EMAIL"),
     nativeSpeechToTextModuleName: readEnv("EXPO_PUBLIC_NATIVE_STT_MODULE_NAME") ?? "NativeSpeechToText",
