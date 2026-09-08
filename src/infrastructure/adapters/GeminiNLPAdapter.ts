@@ -57,6 +57,7 @@ export class GeminiNLPAdapter implements INLPParsingService {
       "drop grammatical filler words like 'רחוב', 'ליד', 'ב-' as a prefix, and Hebrew prepositions attached to a city name (e.g. 'בחדרה' -> 'חדרה').",
       "For a business, keep its real name intact (e.g. 'מאפיית לוליטה בחדרה' -> 'מאפיית לוליטה חדרה', not just 'לוליטה חדרה').",
       "For a street, keep the street name plus city but drop the word 'רחוב' itself (e.g. 'רחוב חי טייב בחדרה' -> 'חי טייב חדרה').",
+      "For 'action', extract ONLY the task to be done, never the trigger/location clause. The action can appear before OR after the location; e.g. 'תזכיר לי כשאני מגיע לרמי לוי בחדרה לקנות חלב' -> action 'לקנות חלב', locationTarget 'רמי לוי חדרה'. Never return a connector word like 'כשאני' as the action.",
     ].join(" ");
 
     const contextSummary = {

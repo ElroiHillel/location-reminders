@@ -57,3 +57,22 @@ export function isSpatialTrigger(type: TriggerType): boolean {
 export function isBluetoothTrigger(type: TriggerType): boolean {
   return type === TriggerType.BLUETOOTH_CONNECT || type === TriggerType.BLUETOOTH_DISCONNECT;
 }
+
+/** Natural-language "when" phrasing for a trigger, e.g. "כשתגיע לרמי לוי חדרה". */
+export function getConditionText(type: TriggerType, place: string): string {
+  const where = place.trim() || "היעד";
+  switch (type) {
+    case TriggerType.ENTER:
+      return `כשתגיע ל${where}`;
+    case TriggerType.EXIT:
+      return `כשתצא מ${where}`;
+    case TriggerType.NEARBY:
+      return `כשתהיה ליד ${where}`;
+    case TriggerType.BLUETOOTH_CONNECT:
+      return `כשתתחבר ל${where}`;
+    case TriggerType.BLUETOOTH_DISCONNECT:
+      return `כשתתנתק מ${where}`;
+    default:
+      return where;
+  }
+}

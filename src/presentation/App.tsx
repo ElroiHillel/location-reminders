@@ -21,6 +21,7 @@ import { ReminderEditModal } from "./ReminderEditModal";
 import { SettingsModal } from "./SettingsModal";
 import { SavedLocationsModal } from "./SavedLocationsModal";
 import { BluetoothDevicesModal } from "./BluetoothDevicesModal";
+import { ReminderConfirmationSheet } from "./ReminderConfirmationSheet";
 import { LocationSelection, ReminderEditorDraft } from "./types";
 import { getTriggerDisplay, isBluetoothTrigger, isSpatialTrigger } from "./triggerDisplay";
 import { getNotificationStyleDisplay } from "./notificationStyleDisplay";
@@ -65,8 +66,6 @@ const EMPTY_DRAFT: ReminderEditorDraft = {
   status: "ACTIVE",
 };
 
-type StatusFilter = "all" | "active" | "done";
-
 export default function App() {
   return (
     <ThemeProvider>
@@ -76,7 +75,7 @@ export default function App() {
 }
 
 function AppInner() {
-  const { theme, mode, preference, setPreference } = useTheme();
+  const { theme, mode, setPreference } = useTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [query, setQuery] = useState("");
@@ -96,18 +95,18 @@ function AppInner() {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isManualEntryVisible, setIsManualEntryVisible] = useState(false);
-  const [lastSavedReminder, setLastSavedReminder] = useState<Reminder | null>(null);
+  const [confirmReminder, setConfirmReminder] = useState<Reminder | null>(null);
+  const [isConfirmVisible, setIsConfirmVisible] = useState(false);
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
   const [isSavedLocationsVisible, setIsSavedLocationsVisible] = useState(false);
   const [isBluetoothDevicesVisible, setIsBluetoothDevicesVisible] = useState(false);
-  const [searchText, setSearchText] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const pulse = useRef(new Animated.Value(0)).current;
+  const spin = useRef(new Animated.Value(0)).current;
+  const breathe = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     let cancelled = false;
-
     compositionRoot
       .hydrate()
       .then((bootstrap) => {
@@ -121,21 +120,35 @@ function AppInner() {
         setStatusMessage("גע במיקרופון ואמור תזכורת");
       })
       .catch((error) => {
-        if (cancelled) {
-          return;
+        if (!cancelled) {
+          setStatusMessage(error instanceof Error ? error.message : "טעינת הנתונים נכשלה.");
         }
-        setStatusMessage(error instanceof Error ? error.message : "טעינת הנתונים נכשלה.");
       })
       .finally(() => {
         if (!cancelled) {
           setIsHydrating(false);
         }
       });
-
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Idle premium motion: a slowly rotating halo that gently breathes.
+  useEffect(() => {
+    const spinLoop = Animated.loop(
+      Animated.timing(spin, { toValue: 1, duration: 9000, easing: Easing.linear, useNativeDriver: true }),
+    );
+    const breatheLoop = Animated.loop(
+      Animated.timing(breathe, { toValue: 1, duration: 3600, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+    );
+    spinLoop.start();
+    breatheLoop.start();
+    return () => {
+      spinLoop.stop();
+      breatheLoop.stop();
+    };
+  }, [spin, breathe]);
 
   useEffect(() => {
     if (!isRecording) {
@@ -150,24 +163,18 @@ function AppInner() {
   }, [isRecording, pulse]);
 
   async function refreshReminders() {
-    const items = await compositionRoot.reminderRepository.list();
-    setReminders(items);
+    setReminders(await compositionRoot.reminderRepository.list());
   }
-
   async function refreshSavedLocations() {
-    const items = await compositionRoot.savedLocationRepository.list();
-    setSavedLocations(items);
+    setSavedLocations(await compositionRoot.savedLocationRepository.list());
   }
-
   async function refreshBluetoothDevices() {
-    const items = await compositionRoot.bluetoothDeviceRepository.list();
-    setAvailableBluetoothDevices(items);
+    setAvailableBluetoothDevices(await compositionRoot.bluetoothDeviceRepository.list());
   }
 
   const activeNotificationStyle = userSettings?.defaultNotificationStyle ?? NotificationStyle.SOUND;
 
   async function finalizeParsedIntent(text: string) {
-    setLastSavedReminder(null);
     setStatusMessage("מנתח את התזכורת...");
     const result = await compositionRoot.parseReminderIntentUseCase.execute({ text, language: "he" });
     setParserResult(result);
@@ -201,15 +208,15 @@ function AppInner() {
     }
 
     hapticSuccess();
-    setLastSavedReminder(createResult.reminder);
-    setStatusMessage(`נשמר: ${createResult.reminder.title}`);
+    setStatusMessage("גע במיקרופון ואמור תזכורת");
+    setConfirmReminder(createResult.reminder);
+    setIsConfirmVisible(true);
   }
 
   async function handleVoicePress() {
     try {
       if (!isRecording) {
         hapticMedium();
-        setLastSavedReminder(null);
         setStatusMessage("מקשיב...");
         await compositionRoot.speechToTextService.startRecording("he");
         setIsRecording(true);
@@ -226,7 +233,7 @@ function AppInner() {
         setStatusMessage(
           userSettings?.geminiApiKey
             ? "לא זוהה דיבור. נסה שוב."
-            : "לא זוהה דיבור. הוסף מפתח Gemini בהגדרות כדי להפעיל הקלטה קולית.",
+            : "לא זוהה דיבור. הוסף מפתח Gemini בהגדרות.",
         );
         return;
       }
@@ -255,14 +262,11 @@ function AppInner() {
   async function handleCreateFromMap(location: LocationSelection) {
     setDraft((current) => ({ ...current, resolvedLocation: location, parsedLocationQuery: location.address }));
     setIsMapVisible(false);
-
     if (!pendingCreateDraft) {
       return;
     }
-
     const nextDraft = { ...pendingCreateDraft, resolvedLocation: location, parsedLocationQuery: location.address };
     setPendingCreateDraft(null);
-
     const result = await compositionRoot.createReminderUseCase.execute({
       title: nextDraft.title || nextDraft.action || query,
       action: nextDraft.action || nextDraft.title || query,
@@ -275,12 +279,11 @@ function AppInner() {
       manualResolvedLocation: nextDraft.resolvedLocation,
       notificationStyle: nextDraft.notificationStyle,
     });
-
     await refreshReminders();
     setIsEditorVisible(false);
     hapticSuccess();
-    setLastSavedReminder(result.reminder);
-    setStatusMessage(result.requiresFallback ? "התזכורת נשמרה עם מיקום ידני." : "התזכורת נוצרה.");
+    setConfirmReminder(result.reminder);
+    setIsConfirmVisible(true);
   }
 
   async function handleConfirmDraft(nextDraft: ReminderEditorDraft) {
@@ -294,7 +297,6 @@ function AppInner() {
         setStatusMessage("בחר מיקום על המפה לסיום.");
         return;
       }
-
       const result = await compositionRoot.createReminderUseCase.execute({
         title: nextDraft.title || nextDraft.action || query,
         action: nextDraft.action || nextDraft.title || query,
@@ -307,19 +309,16 @@ function AppInner() {
         manualResolvedLocation: nextDraft.resolvedLocation,
         notificationStyle: nextDraft.notificationStyle,
       });
-
       await refreshReminders();
       setIsEditorVisible(false);
       hapticSuccess();
-      setLastSavedReminder(result.reminder);
-      setStatusMessage(result.requiresFallback ? "התזכורת נשמרה." : "התזכורת נוצרה.");
+      setStatusMessage("התזכורת נוצרה.");
       return;
     }
 
     if (!editingReminderId) {
       return;
     }
-
     await compositionRoot.updateReminderUseCase.execute({
       reminderId: editingReminderId,
       changes: {
@@ -335,28 +334,42 @@ function AppInner() {
         status: nextDraft.status,
       },
     });
-
     await refreshReminders();
     setIsEditorVisible(false);
     hapticSuccess();
     setStatusMessage("התזכורת עודכנה.");
   }
 
+  async function handleConfirmStyleChange(style: NotificationStyle) {
+    if (!confirmReminder) {
+      return;
+    }
+    const updated = { ...confirmReminder, notificationStyle: style };
+    setConfirmReminder(updated);
+    await compositionRoot.updateReminderUseCase.execute({
+      reminderId: confirmReminder.id,
+      changes: { notificationStyle: style },
+    });
+    await refreshReminders();
+  }
+
+  function handleEditFromConfirm() {
+    const reminder = confirmReminder;
+    setIsConfirmVisible(false);
+    if (reminder) {
+      openEditModal(reminder);
+    }
+  }
+
   async function handleDeleteReminder(reminder: Reminder) {
     hapticWarning();
     await compositionRoot.reminderRepository.delete(reminder.id);
-
     if (isSpatialTrigger(reminder.triggerType)) {
       await compositionRoot.geofencingService.unregister(reminder.id);
     }
     if (isBluetoothTrigger(reminder.triggerType)) {
       await compositionRoot.bluetoothTriggerService.unregister(reminder.id);
     }
-
-    if (lastSavedReminder?.id === reminder.id) {
-      setLastSavedReminder(null);
-    }
-
     await refreshReminders();
     setStatusMessage("התזכורת נמחקה.");
   }
@@ -364,41 +377,30 @@ function AppInner() {
   async function handleToggleReminderStatus(reminder: Reminder) {
     hapticSelection();
     const nextStatus: ReminderStatus = reminder.status === "ACTIVE" ? "CANCELLED" : "ACTIVE";
-    await compositionRoot.updateReminderUseCase.execute({
-      reminderId: reminder.id,
-      changes: { status: nextStatus },
-    });
+    await compositionRoot.updateReminderUseCase.execute({ reminderId: reminder.id, changes: { status: nextStatus } });
     await refreshReminders();
   }
 
   async function handleMapSearch(searchQuery: string): Promise<LocationSelection | null> {
     const result = await compositionRoot.geocodingService.geocode({ text: searchQuery, preferredLanguage: "he" });
-    if (!result) {
-      return null;
-    }
-    return { latitude: result.latitude, longitude: result.longitude, address: result.address };
+    return result ? { latitude: result.latitude, longitude: result.longitude, address: result.address } : null;
   }
 
   async function handleSaveSettings(settings: UserSettings) {
-    const saved = await compositionRoot.updateUserSettings(settings);
-    setUserSettings(saved);
+    setUserSettings(await compositionRoot.updateUserSettings(settings));
   }
-
   async function handleSaveLocation(location: SavedLocation) {
     await compositionRoot.savedLocationRepository.save(location);
     await refreshSavedLocations();
   }
-
   async function handleDeleteLocation(locationId: string) {
     await compositionRoot.savedLocationRepository.delete(locationId);
     await refreshSavedLocations();
   }
-
   async function handleSaveBluetoothDevice(device: BluetoothDevice) {
     await compositionRoot.bluetoothDeviceRepository.save(device);
     await refreshBluetoothDevices();
   }
-
   async function handleDeleteBluetoothDevice(deviceId: string) {
     await compositionRoot.bluetoothDeviceRepository.delete(deviceId);
     await refreshBluetoothDevices();
@@ -435,16 +437,12 @@ function AppInner() {
     setIsEditorVisible(true);
   }
 
-  function cycleTheme() {
-    hapticSelection();
-    setPreference(mode === "dark" ? "light" : "dark");
-  }
-
-  const visibleReminders = useMemo(
-    () => filterAndSortReminders(reminders, searchText, statusFilter),
-    [reminders, searchText, statusFilter],
-  );
+  const sortedReminders = useMemo(() => sortReminders(reminders), [reminders]);
   const activeCount = useMemo(() => reminders.filter((item) => item.status === "ACTIVE").length, [reminders]);
+  const confirmDeviceName = useMemo(
+    () => availableBluetoothDevices.find((device) => device.id === confirmReminder?.targetBluetoothDeviceId)?.name ?? null,
+    [availableBluetoothDevices, confirmReminder],
+  );
 
   if (isHydrating) {
     return (
@@ -457,13 +455,15 @@ function AppInner() {
     );
   }
 
+  const spinDeg = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+  const breatheScale = breathe.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 1.06, 1] });
   const ringOne = {
     transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 2.1] }) }],
-    opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 0] }),
+    opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.4, 0] }),
   };
   const ringTwo = {
-    transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.6] }) }],
-    opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
+    transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.55] }) }],
+    opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] }),
   };
 
   return (
@@ -472,41 +472,48 @@ function AppInner() {
       <SafeAreaView style={styles.safe}>
         <StatusBar style={mode === "dark" ? "light" : "dark"} />
         <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {/* Top bar */}
+          {/* Minimal top bar */}
           <View style={styles.topBar}>
             <View style={styles.brandRow}>
               <View style={styles.brandDot} />
-              <Text style={styles.brandText}>תזכורות חכמות</Text>
+              <Text style={styles.brandText}>תזכורות</Text>
             </View>
             <View style={styles.topBarActions}>
-              <IconButton icon={mode === "dark" ? "☀️" : "🌙"} onPress={cycleTheme} />
+              <IconButton icon={mode === "dark" ? "☀️" : "🌙"} onPress={() => { hapticSelection(); setPreference(mode === "dark" ? "light" : "dark"); }} />
               <IconButton icon="📍" onPress={() => { hapticLight(); setIsSavedLocationsVisible(true); }} />
               <IconButton icon="🚗" onPress={() => { hapticLight(); setIsBluetoothDevicesVisible(true); }} />
               <IconButton icon="⚙️" onPress={() => { hapticLight(); setIsSettingsVisible(true); }} />
             </View>
           </View>
 
-          {/* Hero / mic */}
-          <GlassSurface strong radius={radii.xxl} style={styles.heroCard}>
-            <Text style={styles.heroTitle}>תגיד מה ואיפה — אני אזכיר</Text>
-            <Text style={styles.heroSubtitle}>{statusMessage}</Text>
-
+          {/* Hero mic — clean, centered, animated */}
+          <View style={styles.hero}>
             <View style={styles.micArea}>
+              <Animated.View style={[styles.halo, { transform: [{ rotate: spinDeg }, { scale: breatheScale }] }]}>
+                <LinearGradient
+                  colors={[theme.accentGradientStart, theme.accentAltEnd, theme.accentGradientEnd]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.haloFill}
+                />
+              </Animated.View>
+
               {isRecording ? (
                 <>
                   <Animated.View style={[styles.micRing, { borderColor: theme.danger }, ringOne]} />
                   <Animated.View style={[styles.micRing, { borderColor: theme.danger }, ringTwo]} />
                 </>
               ) : null}
+
               <Pressable onPress={handleVoicePress} disabled={isTranscribing} style={styles.micPressable}>
                 <MicButton theme={theme} isRecording={isRecording} isTranscribing={isTranscribing} />
               </Pressable>
             </View>
 
-            <Pressable onPress={() => { hapticSelection(); setIsManualEntryVisible((v) => !v); }} style={styles.manualToggle}>
-              <Text style={styles.manualToggleText}>
-                {isManualEntryVisible ? "הסתר הקלדה" : "⌨️  להקליד במקום לדבר"}
-              </Text>
+            <Text style={styles.heroStatus}>{statusMessage}</Text>
+
+            <Pressable onPress={() => { hapticSelection(); setIsManualEntryVisible((v) => !v); }} hitSlop={8}>
+              <Text style={styles.manualToggle}>{isManualEntryVisible ? "הסתר הקלדה" : "⌨️  להקליד במקום"}</Text>
             </Pressable>
 
             {isManualEntryVisible ? (
@@ -524,82 +531,24 @@ function AppInner() {
                 <GradientButton label="צור תזכורת" onPress={handleManualSubmit} />
               </View>
             ) : null}
-          </GlassSurface>
-
-          {/* Saved confirmation */}
-          {lastSavedReminder ? (
-            <GlassSurface radius={radii.lg} style={[styles.confirmCard, { borderColor: theme.accent }]}>
-              <View style={styles.confirmTextBlock}>
-                <Text style={styles.confirmTitle}>✓ נשמר: {lastSavedReminder.title}</Text>
-                <Text style={styles.confirmMeta}>{getTriggerDisplay(lastSavedReminder.triggerType).label}</Text>
-              </View>
-              <View style={styles.confirmActions}>
-                <Pressable onPress={() => openEditModal(lastSavedReminder)} style={styles.confirmEdit}>
-                  <Text style={styles.confirmEditText}>✏️ ערוך</Text>
-                </Pressable>
-                <Pressable onPress={() => { hapticSelection(); setLastSavedReminder(null); }} style={styles.confirmDismiss}>
-                  <Text style={styles.confirmDismissText}>✕</Text>
-                </Pressable>
-              </View>
-            </GlassSurface>
-          ) : null}
-
-          {/* Section header */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>התזכורות שלך</Text>
-            <View style={styles.sectionBadge}>
-              <Text style={styles.sectionBadgeText}>{activeCount} פעילות</Text>
-            </View>
           </View>
 
-          {/* Search + filters */}
+          {/* Reminders */}
           {reminders.length > 0 ? (
-            <View style={styles.controlsBlock}>
-              <View style={styles.searchRow}>
-                <Text style={styles.searchIcon}>🔍</Text>
-                <TextInput
-                  value={searchText}
-                  onChangeText={setSearchText}
-                  placeholder="חיפוש תזכורת..."
-                  placeholderTextColor={theme.textMuted}
-                  style={styles.searchInput}
-                  textAlign="right"
-                />
-                {searchText ? (
-                  <Pressable onPress={() => setSearchText("")} hitSlop={8}>
-                    <Text style={styles.searchClear}>✕</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-              <View style={styles.filterRow}>
-                {([
-                  ["all", "הכל"],
-                  ["active", "פעילות"],
-                  ["done", "בוצעו"],
-                ] as [StatusFilter, string][]).map(([value, label]) => {
-                  const selected = statusFilter === value;
-                  return (
-                    <Pressable
-                      key={value}
-                      onPress={() => { hapticSelection(); setStatusFilter(value); }}
-                      style={[styles.filterChip, selected && styles.filterChipActive]}
-                    >
-                      <Text style={[styles.filterChipText, selected && styles.filterChipTextActive]}>{label}</Text>
-                    </Pressable>
-                  );
-                })}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>התזכורות שלך</Text>
+              <View style={styles.sectionBadge}>
+                <Text style={styles.sectionBadgeText}>{activeCount} פעילות</Text>
               </View>
             </View>
           ) : null}
 
-          {/* Reminder list */}
-          {visibleReminders.length > 0 ? (
+          {sortedReminders.length > 0 ? (
             <View style={styles.list}>
-              {visibleReminders.map((item) => (
+              {sortedReminders.map((item) => (
                 <ReminderCard
                   key={item.id}
                   reminder={item}
-                  theme={theme}
                   styles={styles}
                   onPress={() => openEditModal(item)}
                   onDelete={() => handleDeleteReminder(item)}
@@ -608,26 +557,27 @@ function AppInner() {
               ))}
             </View>
           ) : (
-            <GlassSurface radius={radii.lg} style={styles.emptyCard}>
-              <Text style={styles.emptyEmoji}>{reminders.length === 0 ? "🎙️" : "🔍"}</Text>
-              <Text style={styles.emptyText}>
-                {reminders.length === 0
-                  ? 'אין תזכורות עדיין. נסה לומר "כשאני מגיע לקניון תקנה חלב".'
-                  : "לא נמצאו תזכורות שמתאימות לחיפוש."}
-              </Text>
-            </GlassSurface>
+            <Text style={styles.emptyText}>אין תזכורות עדיין. גע במיקרופון ואמור מה להזכיר לך ואיפה.</Text>
           )}
 
           <View style={{ height: spacing.xxxl }} />
         </ScrollView>
 
-        {/* Floating add button */}
         <Pressable onPress={openCreateModal} style={styles.fab}>
           <GlassSurface strong radius={radii.pill} style={styles.fabInner}>
             <Text style={styles.fabIcon}>＋</Text>
           </GlassSurface>
         </Pressable>
       </SafeAreaView>
+
+      <ReminderConfirmationSheet
+        visible={isConfirmVisible}
+        reminder={confirmReminder}
+        deviceName={confirmDeviceName}
+        onChangeStyle={handleConfirmStyleChange}
+        onEdit={handleEditFromConfirm}
+        onClose={() => setIsConfirmVisible(false)}
+      />
 
       <ReminderEditModal
         visible={isEditorVisible}
@@ -681,15 +631,15 @@ function IconButton({ icon, onPress }: { icon: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress}>
       <GlassSurface radius={radii.pill} style={styles_iconButton}>
-        <Text style={{ fontSize: 16 }}>{icon}</Text>
+        <Text style={{ fontSize: 15 }}>{icon}</Text>
       </GlassSurface>
     </Pressable>
   );
 }
 
 const styles_iconButton = {
-  width: 42,
-  height: 42,
+  width: 40,
+  height: 40,
   alignItems: "center" as const,
   justifyContent: "center" as const,
 };
@@ -701,41 +651,31 @@ function MicButton({ theme, isRecording, isTranscribing }: { theme: ThemePalette
   return (
     <View style={micStyles.wrap}>
       <View style={micStyles.gradientWrap}>
-        <LinearGradientCircle colors={colors} />
+        <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={micStyles.gradient} />
         <View style={micStyles.center}>
-          {isTranscribing ? (
-            <ActivityIndicator color={theme.onAccent} />
-          ) : (
-            <Text style={micStyles.icon}>{isRecording ? "⏹" : "🎙️"}</Text>
-          )}
+          {isTranscribing ? <ActivityIndicator color={theme.onAccent} /> : <Text style={micStyles.icon}>{isRecording ? "⏹" : "🎙️"}</Text>}
         </View>
       </View>
     </View>
   );
 }
 
-function LinearGradientCircle({ colors }: { colors: readonly [string, string] }) {
-  return <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={micStyles.gradient} />;
-}
-
 const micStyles = StyleSheet.create({
-  wrap: { width: 132, height: 132, alignItems: "center", justifyContent: "center" },
-  gradientWrap: { width: 124, height: 124, borderRadius: 62, overflow: "hidden" },
+  wrap: { width: 128, height: 128, alignItems: "center", justifyContent: "center" },
+  gradientWrap: { width: 120, height: 120, borderRadius: 60, overflow: "hidden" },
   gradient: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   center: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
-  icon: { fontSize: 48 },
+  icon: { fontSize: 46 },
 });
 
 function ReminderCard({
   reminder,
-  theme,
   styles,
   onPress,
   onDelete,
   onToggle,
 }: {
   reminder: Reminder;
-  theme: ThemePalette;
   styles: ReturnType<typeof createStyles>;
   onPress: () => void;
   onDelete: () => void;
@@ -760,9 +700,7 @@ function ReminderCard({
               <Text style={styles.cardIconText}>🗑️</Text>
             </Pressable>
             <Pressable onPress={onToggle} hitSlop={6} style={[styles.statusPill, !isActive && styles.statusPillInactive]}>
-              <Text style={[styles.statusPillText, !isActive && styles.statusPillTextInactive]}>
-                {isActive ? "פעיל" : "מבוטל"}
-              </Text>
+              <Text style={[styles.statusPillText, !isActive && styles.statusPillTextInactive]}>{isActive ? "פעיל" : "מבוטל"}</Text>
             </Pressable>
           </View>
         </View>
@@ -774,34 +712,15 @@ function ReminderCard({
           <Text style={styles.reminderLocation} numberOfLines={1}>
             📍 {reminder.parsedLocationQuery || reminder.resolvedLocation?.address || "אין מיקום"}
           </Text>
-          {isSpatialTrigger(reminder.triggerType) ? (
-            <Text style={styles.reminderRadius}>{reminder.radiusMeters} מ'</Text>
-          ) : null}
+          {isSpatialTrigger(reminder.triggerType) ? <Text style={styles.reminderRadius}>{reminder.radiusMeters} מ'</Text> : null}
         </View>
       </GlassSurface>
     </Pressable>
   );
 }
 
-function filterAndSortReminders(reminders: Reminder[], search: string, statusFilter: StatusFilter): Reminder[] {
-  const term = search.trim().toLowerCase();
-  const filtered = reminders.filter((reminder) => {
-    if (statusFilter === "active" && reminder.status !== "ACTIVE") {
-      return false;
-    }
-    if (statusFilter === "done" && reminder.status === "ACTIVE") {
-      return false;
-    }
-    if (!term) {
-      return true;
-    }
-    const haystack = [reminder.title, reminder.action, reminder.parsedLocationQuery ?? "", reminder.resolvedLocation?.address ?? ""]
-      .join(" ")
-      .toLowerCase();
-    return haystack.includes(term);
-  });
-
-  return filtered.sort((a, b) => {
+function sortReminders(reminders: Reminder[]): Reminder[] {
+  return [...reminders].sort((a, b) => {
     if (a.status !== b.status) {
       return a.status === "ACTIVE" ? -1 : 1;
     }
@@ -840,25 +759,23 @@ function createStyles(theme: ThemePalette) {
     safe: { flex: 1 },
     loadingShell: { flex: 1, alignItems: "center", justifyContent: "center", gap: spacing.lg, backgroundColor: theme.bg },
     loadingText: { color: theme.textSecondary, ...typography.body },
-    container: { padding: spacing.xl, paddingBottom: spacing.xxxl, gap: spacing.lg },
+    container: { padding: spacing.xl, paddingBottom: spacing.xxxl, gap: spacing.xl },
 
     topBar: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" },
     brandRow: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm },
-    brandDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: theme.accent },
+    brandDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: theme.accent },
     brandText: { color: theme.text, ...typography.heading, fontWeight: "800" },
     topBarActions: { flexDirection: "row-reverse", gap: spacing.sm },
 
-    heroCard: { paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl, alignItems: "center", gap: spacing.md },
-    heroTitle: { color: theme.text, ...typography.hero, textAlign: "center" },
-    heroSubtitle: { color: theme.textSecondary, ...typography.body, textAlign: "center", minHeight: 22 },
-
-    micArea: { width: 168, height: 168, alignItems: "center", justifyContent: "center", marginVertical: spacing.sm },
-    micRing: { position: "absolute", top: 22, left: 22, width: 124, height: 124, borderRadius: 62, borderWidth: 2 },
+    hero: { alignItems: "center", gap: spacing.lg, paddingTop: spacing.xxl, paddingBottom: spacing.lg },
+    micArea: { width: 200, height: 200, alignItems: "center", justifyContent: "center" },
+    halo: { position: "absolute", width: 176, height: 176, borderRadius: 88, overflow: "hidden", opacity: 0.5 },
+    haloFill: { flex: 1 },
+    micRing: { position: "absolute", width: 128, height: 128, borderRadius: 64, borderWidth: 2 },
     micPressable: { alignItems: "center", justifyContent: "center" },
-
-    manualToggle: { paddingVertical: spacing.xs },
-    manualToggleText: { color: theme.accent, ...typography.label },
-    manualBlock: { width: "100%", gap: spacing.md },
+    heroStatus: { color: theme.textSecondary, ...typography.body, textAlign: "center", minHeight: 22 },
+    manualToggle: { color: theme.textMuted, ...typography.caption, fontWeight: "700" },
+    manualBlock: { width: "100%", gap: spacing.md, marginTop: spacing.xs },
     promptInput: {
       minHeight: 76,
       borderRadius: radii.lg,
@@ -872,51 +789,14 @@ function createStyles(theme: ThemePalette) {
       ...typography.body,
     },
 
-    confirmCard: { flexDirection: "row-reverse", alignItems: "center", justifyContent: "space-between", padding: spacing.lg, gap: spacing.md },
-    confirmTextBlock: { flex: 1, alignItems: "flex-end", gap: 2 },
-    confirmTitle: { color: theme.accent, ...typography.heading, fontWeight: "800", textAlign: "right" },
-    confirmMeta: { color: theme.textSecondary, ...typography.caption, textAlign: "right" },
-    confirmActions: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm },
-    confirmEdit: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radii.pill, backgroundColor: theme.chip },
-    confirmEditText: { color: theme.text, ...typography.caption },
-    confirmDismiss: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
-    confirmDismissText: { color: theme.textMuted, ...typography.heading },
-
-    sectionHeader: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center", marginTop: spacing.xs },
+    sectionHeader: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" },
     sectionTitle: { color: theme.text, ...typography.title },
     sectionBadge: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radii.pill, backgroundColor: theme.accentSoft },
     sectionBadgeText: { color: theme.accent, ...typography.caption },
 
-    controlsBlock: { gap: spacing.sm },
-    searchRow: {
-      flexDirection: "row-reverse",
-      alignItems: "center",
-      gap: spacing.sm,
-      backgroundColor: theme.inputBg,
-      borderWidth: 1,
-      borderColor: theme.inputBorder,
-      borderRadius: radii.md,
-      paddingHorizontal: spacing.md,
-    },
-    searchIcon: { fontSize: 14, opacity: 0.7 },
-    searchInput: { flex: 1, color: theme.text, paddingVertical: spacing.md, ...typography.body, writingDirection: "rtl" },
-    searchClear: { color: theme.textMuted, fontSize: 14, paddingHorizontal: spacing.xs },
-    filterRow: { flexDirection: "row-reverse", gap: spacing.sm },
-    filterChip: {
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-      borderRadius: radii.pill,
-      backgroundColor: theme.chip,
-      borderWidth: 1,
-      borderColor: "transparent",
-    },
-    filterChipActive: { backgroundColor: theme.chipActive, borderColor: theme.accent },
-    filterChipText: { color: theme.textSecondary, ...typography.caption },
-    filterChipTextActive: { color: theme.accent },
-
     list: { gap: spacing.md },
     reminderCard: { padding: spacing.lg, gap: spacing.sm },
-    reminderCardInactive: { opacity: 0.62 },
+    reminderCardInactive: { opacity: 0.6 },
     reminderTopRow: { flexDirection: "row-reverse", justifyContent: "space-between", alignItems: "center" },
     reminderBadges: { flexDirection: "row-reverse", alignItems: "center", gap: spacing.sm },
     triggerBadge: { flexDirection: "row-reverse", alignItems: "center", gap: 6, borderRadius: radii.pill, paddingHorizontal: spacing.md, paddingVertical: 6 },
@@ -936,9 +816,7 @@ function createStyles(theme: ThemePalette) {
     reminderLocation: { color: theme.accent, ...typography.caption, fontWeight: "700", flex: 1, textAlign: "right" },
     reminderRadius: { color: theme.textMuted, ...typography.caption },
 
-    emptyCard: { padding: spacing.xxl, alignItems: "center", gap: spacing.md },
-    emptyEmoji: { fontSize: 40 },
-    emptyText: { color: theme.textSecondary, ...typography.body, textAlign: "center", lineHeight: 24 },
+    emptyText: { color: theme.textSecondary, ...typography.body, textAlign: "center", lineHeight: 24, paddingHorizontal: spacing.xl },
 
     fab: { position: "absolute", bottom: spacing.xl, left: spacing.xl },
     fabInner: { width: 60, height: 60, alignItems: "center", justifyContent: "center" },

@@ -92,7 +92,16 @@ const VEHICLE_CONNECT_PATTERNS = [
 
 const VEHICLE_DISCONNECT_PATTERNS = ["מתנתק", "מתנתקת", "ניתוק", "בניתוק", "מתנתק מרכב", "מתנתקת מרכב"];
 
-const LEAD_IN_FILLERS = ["תזכיר לי", "תזכירי לי", "אני צריך", "אני צריכה", "בבקשה"];
+const LEAD_IN_FILLERS = ["תזכיר לי", "תזכירי לי", "תזכיר", "תזכירי", "אני צריך", "אני צריכה", "בבקשה"];
+
+// Infinitive verbs that typically START the "what to do" clause of a reminder.
+// Used to split the location clause from the action clause.
+const ACTION_VERB_MARKERS = [
+  "לקנות", "לקחת", "לקבל", "להביא", "להתקשר", "לצלצל", "לטלפן", "לשלוח", "לשלם", "לבדוק",
+  "לעשות", "להוציא", "לזרוק", "לאסוף", "לפגוש", "לדבר", "לרשום", "לכתוב", "להזמין", "למלא",
+  "לתדלק", "לחדש", "להחזיר", "לעדכן", "לשאול", "לספר", "לבקר", "לקפוץ", "לאכול", "לשתות",
+  "לישון", "לנוח", "להדליק", "לכבות", "לנעול", "לפתוח", "לסגור", "להוריד", "להעלות", "לחתום",
+];
 
 export class LocalHebrewNLPAdapter implements NaturalLanguageParserService {
   constructor(
@@ -109,8 +118,23 @@ export class LocalHebrewNLPAdapter implements NaturalLanguageParserService {
     const matchedSavedLocation = this.findSavedLocation(normalizedText, savedLocations);
     const matchedBluetoothDevice = this.findBluetoothDevice(normalizedText, bluetoothDevices);
     const category = this.detectLocationCategory(normalizedText);
-    const locationTarget = this.extractTargetPhrase(normalizedText, matchedSavedLocation, matchedBluetoothDevice, category);
-    const action = this.extractAction(normalizedText, locationTarget, category);
+
+    // Split the sentence into a location clause and an action clause around the
+    // trigger word and the first action-verb, so "כשאני מגיע לרמי לוי בחדרה
+    // לקנות חלב" yields location "רמי לוי חדרה" and action "לקנות חלב".
+    const segment = this.segmentLocationAndAction(normalizedText);
+
+    const locationTarget = matchedSavedLocation
+      ? matchedSavedLocation.label
+      : matchedBluetoothDevice
+        ? matchedBluetoothDevice.name
+        : segment.location
+          ? normalizeLocationQueryForGeocoding(segment.location)
+          : category
+            ? CANONICAL_TARGET_BY_CATEGORY[category]
+            : null;
+
+    const action = segment.action || this.stripLeadInPhrases(normalizedText);
     const requiresFallback = this.shouldFallback(normalizedText, triggerType, action, matchedSavedLocation, matchedBluetoothDevice, locationTarget);
 
     return {
@@ -349,40 +373,68 @@ export class LocalHebrewNLPAdapter implements NaturalLanguageParserService {
     return matches[0]?.device ?? null;
   }
 
-  private extractTargetPhrase(
-    text: string,
-    matchedSavedLocation: SavedLocation | null,
-    matchedBluetoothDevice: BluetoothDevice | null,
-    category: LocationCategory | null,
-  ): string | null {
-    if (matchedSavedLocation) {
-      return matchedSavedLocation.label;
-    }
-    if (matchedBluetoothDevice) {
-      return matchedBluetoothDevice.name;
-    }
-    if (category) {
-      return CANONICAL_TARGET_BY_CATEGORY[category];
-    }
-
-    const allTriggerPatterns = [
+  private allTriggerPatterns(): string[] {
+    return [
       ...VEHICLE_CONNECT_PATTERNS,
       ...VEHICLE_DISCONNECT_PATTERNS,
       ...ENTER_PATTERNS,
       ...EXIT_PATTERNS,
       ...NEARBY_PATTERNS,
     ];
+  }
 
-    const triggerMatch = this.findFirstPhraseMatch(text, allTriggerPatterns);
+  /**
+   * Splits the sentence into a location clause and an action clause around the
+   * trigger word and the first action verb. Handles both orders:
+   *   "כשאני מגיע ל<מקום> <פעולה>"  and  "<פעולה> כשאני מגיע ל<מקום>".
+   */
+  private segmentLocationAndAction(text: string): { location: string | null; action: string } {
+    const core = this.stripLeadInPhrases(text);
+    const triggerMatch = this.findFirstPhraseMatch(core, this.allTriggerPatterns());
+    const actionMatch = this.findFirstPhraseMatch(core, ACTION_VERB_MARKERS);
+
     if (!triggerMatch) {
-      return null;
+      return { location: null, action: this.cleanActionPhrase(core) };
     }
 
-    const after = text.slice(triggerMatch.index + triggerMatch.length).trim();
-    const before = text.slice(0, triggerMatch.index).trim();
-    const rawTarget = after || before;
+    const afterStart = triggerMatch.index + triggerMatch.length;
+    const before = core.slice(0, triggerMatch.index);
+    const after = core.slice(afterStart);
 
-    return rawTarget ? normalizeLocationQueryForGeocoding(this.stripAttachedPreposition(rawTarget)) : null;
+    let locationRaw: string;
+    let actionRaw: string;
+
+    if (actionMatch && actionMatch.index >= afterStart) {
+      locationRaw = core.slice(afterStart, actionMatch.index);
+      actionRaw = core.slice(actionMatch.index);
+    } else if (actionMatch && actionMatch.index < triggerMatch.index) {
+      actionRaw = core.slice(actionMatch.index, triggerMatch.index);
+      locationRaw = after;
+    } else {
+      locationRaw = after;
+      actionRaw = before;
+    }
+
+    return { location: this.cleanLocationPhrase(locationRaw), action: this.cleanActionPhrase(actionRaw) };
+  }
+
+  private cleanLocationPhrase(phrase: string): string | null {
+    let cleaned = this.normalize(phrase);
+    for (const filler of LEAD_IN_FILLERS) {
+      cleaned = this.removePhrase(cleaned, filler);
+    }
+    cleaned = this.stripAttachedPreposition(cleaned.trim());
+    const result = cleaned.trim();
+    return result.length > 0 ? result : null;
+  }
+
+  private cleanActionPhrase(phrase: string): string {
+    let cleaned = this.stripLeadInPhrases(phrase);
+    // Drop a dangling connector at the start ("כש", "כשאני", "ש", "כאשר", "ברגע ש")
+    // or trailing at the end (e.g. "לקנות חלב כשאני" -> "לקנות חלב").
+    cleaned = cleaned.replace(/^(כשאני|כשאתה|כשאת|כאשר|ברגע ש?|עד ש?|כש|ש)\s+/, "").trim();
+    cleaned = cleaned.replace(/\s+(כשאני|כשאתה|כשאת|כאשר|כש)$/, "").trim();
+    return cleaned;
   }
 
   private stripAttachedPreposition(phrase: string): string {
@@ -406,51 +458,6 @@ export class LocalHebrewNLPAdapter implements NaturalLanguageParserService {
       return normalizedText;
     }
     return this.normalize(normalizedText.replace(normalizedPhrase, " "));
-  }
-
-  private extractAction(text: string, locationTarget: string | null, category: LocationCategory | null): string {
-    const allTriggerPatterns = [
-      ...VEHICLE_CONNECT_PATTERNS,
-      ...VEHICLE_DISCONNECT_PATTERNS,
-      ...ENTER_PATTERNS,
-      ...EXIT_PATTERNS,
-      ...NEARBY_PATTERNS,
-    ];
-
-    const triggerMatch = this.findFirstPhraseMatch(text, allTriggerPatterns);
-    let actionCandidate = text;
-
-    if (triggerMatch) {
-      const before = text.slice(0, triggerMatch.index).trim();
-      const after = text.slice(triggerMatch.index + triggerMatch.length).trim();
-
-      if (triggerMatch.index === 0 && after) {
-        actionCandidate = after;
-      } else if (before) {
-        actionCandidate = before;
-      } else {
-        actionCandidate = after || text;
-      }
-    }
-
-    let cleanedAction = this.stripLeadInPhrases(actionCandidate);
-
-    if (locationTarget) {
-      cleanedAction = this.removePhrase(cleanedAction, locationTarget);
-    }
-
-    if (category) {
-      for (const synonym of LOCATION_SYNONYMS[category]) {
-        cleanedAction = this.removePhrase(cleanedAction, synonym);
-      }
-    }
-
-    for (const pattern of allTriggerPatterns) {
-      cleanedAction = this.removePhrase(cleanedAction, pattern);
-    }
-
-    cleanedAction = this.stripLeadInPhrases(cleanedAction);
-    return cleanedAction.length > 0 ? cleanedAction : this.stripLeadInPhrases(text);
   }
 
   private shouldFallback(
