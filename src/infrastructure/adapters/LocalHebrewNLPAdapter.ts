@@ -208,7 +208,11 @@ export class LocalHebrewNLPAdapter implements NaturalLanguageParserService {
       return false;
     }
 
-    if (normalizedText.includes(normalizedPhrase)) {
+    // Whole-word(s) match only — pad with spaces so a short phrase like "ית"
+    // (a prefix-stripped "בית") does NOT match inside a longer word such as
+    // "מאפיית". Attached-prefix forms ("לבית" -> "בית") are still caught by the
+    // token-variant loop below.
+    if (` ${normalizedText} `.includes(` ${normalizedPhrase} `)) {
       return true;
     }
 
