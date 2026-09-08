@@ -7,9 +7,20 @@ import { AudioInput, TranscriptionResult } from "../../domain/interfaces/types";
 import { ISpeechToTextService } from "../contracts/ServiceContracts";
 import { InfrastructureEnvironment } from "../config/environment";
 import { callGeminiWithRetry } from "./geminiRetry";
+import { setTranscriptionIssue } from "./geocodingDiagnostics";
 
-// RecordingPresets.HIGH_QUALITY produces an MPEG-4/AAC container (".m4a") on both platforms.
-const RECORDING_MIME_TYPE = "audio/m4a";
+// Gemini supports wav/mp3/aac/ogg/flac — NOT the ".m4a" container. On Android we
+// record raw AAC (ADTS, "audio/aac"), which Gemini accepts. iOS produces m4a and
+// is sent as "audio/mp4".
+const RECORDING_MIME_TYPE = Platform.OS === "android" ? "audio/aac" : "audio/mp4";
+
+// Android: raw AAC (ADTS) so the file is a Gemini-supported "audio/aac".
+const RECORDING_OPTIONS: RecordingOptions = {
+  ...RecordingPresets.HIGH_QUALITY,
+  extension: Platform.OS === "android" ? ".aac" : ".m4a",
+  numberOfChannels: 1,
+  android: { outputFormat: "aac_adts", audioEncoder: "aac" },
+};
 
 /**
  * Flatten a preset's platform sub-options to the top level, exactly like
@@ -79,7 +90,9 @@ export class NativeSpeechToTextAdapter implements ISpeechToTextService {
         provider: "gemini-speech",
       };
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       console.error("Transcription adapter error:", error);
+      setTranscriptionIssue(`תמלול נכשל: ${message}`);
       return {
         text: "",
         confidence: 0,
@@ -100,7 +113,7 @@ export class NativeSpeechToTextAdapter implements ISpeechToTextService {
 
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
 
-    const recorder = new AudioModule.AudioRecorder(toPlatformRecordingOptions(RecordingPresets.HIGH_QUALITY));
+    const recorder = new AudioModule.AudioRecorder(toPlatformRecordingOptions(RECORDING_OPTIONS));
     await recorder.prepareToRecordAsync();
     recorder.record();
 

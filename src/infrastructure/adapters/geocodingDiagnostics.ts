@@ -18,3 +18,16 @@ export function takeGeocodingIssue(): string | null {
   lastIssue = null;
   return issue;
 }
+
+// Same one-shot channel for voice transcription (why Gemini returned nothing).
+let lastTranscriptionIssue: string | null = null;
+
+export function setTranscriptionIssue(message: string): void {
+  lastTranscriptionIssue = message;
+}
+
+export function takeTranscriptionIssue(): string | null {
+  const issue = lastTranscriptionIssue;
+  lastTranscriptionIssue = null;
+  return issue;
+}

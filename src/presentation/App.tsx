@@ -32,7 +32,7 @@ import { TriggerType } from "../domain/models/TriggerType";
 import { SavedLocation } from "../domain/models/SavedLocation";
 import { UserSettings } from "../domain/models/UserSettings";
 import { NotificationStyle } from "../domain/models/NotificationStyle";
-import { takeGeocodingIssue } from "../infrastructure/adapters/geocodingDiagnostics";
+import { takeGeocodingIssue, takeTranscriptionIssue } from "../infrastructure/adapters/geocodingDiagnostics";
 import { ThemeProvider, useTheme } from "./theme/ThemeContext";
 import { ThemePalette, radii, spacing, typography } from "./theme/tokens";
 import { hapticLight, hapticMedium, hapticSelection, hapticSuccess, hapticWarning } from "./theme/haptics";
@@ -241,11 +241,15 @@ function AppInner() {
       const transcription = await compositionRoot.speechToTextService.stopRecording();
 
       if (!transcription.text.trim()) {
-        setStatusMessage(
-          userSettings?.geminiApiKey
-            ? "לא זוהה דיבור. נסה שוב."
-            : "לא זוהה דיבור. הוסף מפתח Gemini בהגדרות.",
-        );
+        const issue = takeTranscriptionIssue();
+        if (issue) {
+          setStatusMessage(issue);
+          Alert.alert("בעיה בתמלול", issue);
+        } else {
+          setStatusMessage(
+            userSettings?.geminiApiKey ? "לא זוהה דיבור. נסה שוב." : "לא זוהה דיבור. הוסף מפתח Gemini בהגדרות.",
+          );
+        }
         return;
       }
 
