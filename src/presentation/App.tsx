@@ -210,7 +210,7 @@ function AppInner() {
         setStatusMessage(issue);
         Alert.alert(
           "בעיה בחיפוש המיקום",
-          `${issue}\n\nבדוק שה-Places API מופעל בפרויקט, ש-Billing פעיל, ושהמפתח לא מוגבל ל-"Android apps" (הגבלה כזו חוסמת חיפוש). בינתיים אפשר לבחור את המיקום ידנית על המפה.`,
+          `${issue}\n\nודא שמופעל בפרויקט "Places API (New)" (לא הישן), ש-Billing פעיל, ושהמפתח לא מוגבל ל-"Android apps". בינתיים אפשר לבחור את המיקום ידנית על המפה.`,
         );
       } else {
         setStatusMessage("לא נמצא מיקום מדויק — בחר על המפה.");

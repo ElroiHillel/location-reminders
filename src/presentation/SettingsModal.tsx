@@ -149,7 +149,7 @@ export function SettingsModal({ visible, initialSettings, onCancel, onSave }: Se
           <Text style={styles.sectionTitle}>חיפוש מקומות ועסקים (אופציונלי)</Text>
           <Text style={styles.sectionHelp}>
             ברירת המחדל (OpenStreetMap) מוצאת בעיקר רחובות וערים. כדי למצוא עסקים ("רמי לוי חדרה", "תחנת דלק סדש") הזן מפתח
-            Google עם Places API מופעל — קריאה רגילה בזמן ריצה, לא נשמר בבנייה.
+            Google עם "Places API (New)" מופעל (לא הישן) — קריאה רגילה בזמן ריצה, לא נשמר בבנייה.
           </Text>
           <View style={styles.keyRow}>
             <Pressable onPress={() => setIsGoogleKeyVisible((v) => !v)} style={styles.toggleButton}>
