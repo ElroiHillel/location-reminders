@@ -7,5 +7,6 @@ export interface UserSettings {
   nlpProviderPreference: "local" | "gemini" | "hybrid";
   geminiApiKey?: string;
   geminiModel?: string;
+  googlePlacesApiKey?: string;
   defaultNotificationStyle: NotificationStyle;
 }

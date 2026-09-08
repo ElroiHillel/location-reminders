@@ -55,6 +55,7 @@ export class AsyncStorageUserSettingsRepository implements UserSettingsRepositor
           : "hybrid",
       geminiApiKey: settings.geminiApiKey ?? "",
       geminiModel: settings.geminiModel ?? "",
+      googlePlacesApiKey: settings.googlePlacesApiKey ?? "",
       defaultNotificationStyle:
         settings.defaultNotificationStyle && VALID_NOTIFICATION_STYLES.has(settings.defaultNotificationStyle)
           ? settings.defaultNotificationStyle

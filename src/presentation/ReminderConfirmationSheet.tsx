@@ -6,7 +6,6 @@ import { getConditionText, getTriggerDisplay, isBluetoothTrigger } from "./trigg
 import { getNotificationStyleDisplay, NOTIFICATION_STYLE_OPTIONS } from "./notificationStyleDisplay";
 import { useTheme } from "./theme/ThemeContext";
 import { radii, spacing, typography } from "./theme/tokens";
-import { GlassSurface } from "./components/GlassSurface";
 import { GradientButton } from "./components/GradientButton";
 import { hapticSelection } from "./theme/haptics";
 
@@ -68,7 +67,7 @@ export function ReminderConfirmationSheet({
       <View style={styles.root}>
         <Pressable style={styles.backdrop} onPress={onClose} />
         <Animated.View style={[styles.cardWrap, cardStyle]}>
-          <GlassSurface strong radius={radii.xxl} style={styles.card}>
+          <View style={styles.card}>
             <View style={[styles.triggerCircle, { backgroundColor: trigger.backgroundColor }]}>
               <Text style={styles.triggerIcon}>{trigger.icon}</Text>
             </View>
@@ -107,7 +106,7 @@ export function ReminderConfirmationSheet({
               </Pressable>
               <GradientButton label="מעולה" onPress={onClose} style={styles.confirmButton} />
             </View>
-          </GlassSurface>
+          </View>
         </Animated.View>
       </View>
     </Modal>
@@ -119,7 +118,20 @@ function createStyles(theme: ReturnType<typeof useTheme>["theme"]) {
     root: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, direction: "rtl" },
     backdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.overlay },
     cardWrap: { width: "100%", maxWidth: 420 },
-    card: { padding: spacing.xxl, alignItems: "center", gap: spacing.md },
+    card: {
+      padding: spacing.xxl,
+      alignItems: "center",
+      gap: spacing.md,
+      borderRadius: radii.xxl,
+      backgroundColor: theme.bgElevated,
+      borderWidth: 1,
+      borderColor: theme.glassBorder,
+      shadowColor: "#000",
+      shadowOpacity: 0.35,
+      shadowRadius: 30,
+      shadowOffset: { width: 0, height: 16 },
+      elevation: 16,
+    },
     triggerCircle: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center", marginBottom: spacing.xs },
     triggerIcon: { fontSize: 26 },
     conditionText: { color: theme.text, ...typography.title, textAlign: "center" },

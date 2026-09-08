@@ -318,7 +318,10 @@ export class LocalHebrewNLPAdapter implements NaturalLanguageParserService {
         const normalizedLabel = this.normalize(location.label);
         const normalizedAddress = this.normalize(location.address);
         const normalizedAliases = (location.aliases ?? []).map((alias) => this.normalize(alias));
-        let score = this.scoreHebrewMatch(textTokens, normalizedLabel) + this.scoreHebrewMatch(textTokens, normalizedAddress);
+        // NOTE: don't score by address tokens — a shared city name (e.g. "חדרה")
+        // must not make an unrelated saved place (like "בית" in Hadera) match
+        // every reminder in that city. Only the label/aliases identify a place.
+        let score = this.scoreHebrewMatch(textTokens, normalizedLabel);
 
         for (const alias of normalizedAliases) {
           score += this.scoreHebrewMatch(textTokens, alias);
@@ -348,7 +351,9 @@ export class LocalHebrewNLPAdapter implements NaturalLanguageParserService {
 
         return { location, score };
       })
-      .filter((item) => item.score > 0)
+      // Require a real label/alias hit (>=4), not just a weak token/category
+      // overlap — otherwise saved places match reminders that don't name them.
+      .filter((item) => item.score >= 4)
       .sort((left, right) => right.score - left.score);
 
     return matches[0]?.location ?? null;

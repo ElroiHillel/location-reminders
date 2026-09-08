@@ -38,6 +38,7 @@ import { hapticLight, hapticMedium, hapticSelection, hapticSuccess, hapticWarnin
 import { AuroraBackground } from "./components/AuroraBackground";
 import { GlassSurface } from "./components/GlassSurface";
 import { GradientButton } from "./components/GradientButton";
+import { IconFunnel } from "./components/IconFunnel";
 
 I18nManager.allowRTL(true);
 I18nManager.forceRTL(true);
@@ -512,6 +513,10 @@ function AppInner() {
 
             <Text style={styles.heroStatus}>{statusMessage}</Text>
 
+            <View style={styles.funnelArea}>
+              <IconFunnel active={isRecording} />
+            </View>
+
             <Pressable onPress={() => { hapticSelection(); setIsManualEntryVisible((v) => !v); }} hitSlop={8}>
               <Text style={styles.manualToggle}>{isManualEntryVisible ? "הסתר הקלדה" : "⌨️  להקליד במקום"}</Text>
             </Pressable>
@@ -767,8 +772,9 @@ function createStyles(theme: ThemePalette) {
     brandText: { color: theme.text, ...typography.heading, fontWeight: "800" },
     topBarActions: { flexDirection: "row-reverse", gap: spacing.sm },
 
-    hero: { alignItems: "center", gap: spacing.lg, paddingTop: spacing.xxl, paddingBottom: spacing.lg },
+    hero: { alignItems: "center", gap: spacing.md, paddingTop: spacing.xxl, paddingBottom: spacing.xxxl },
     micArea: { width: 200, height: 200, alignItems: "center", justifyContent: "center" },
+    funnelArea: { height: 150, alignSelf: "stretch", alignItems: "center" },
     halo: { position: "absolute", width: 176, height: 176, borderRadius: 88, overflow: "hidden", opacity: 0.5 },
     haloFill: { flex: 1 },
     micRing: { position: "absolute", width: 128, height: 128, borderRadius: 64, borderWidth: 2 },

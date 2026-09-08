@@ -10,6 +10,7 @@ import { Platform } from "react-native";
 import { GeminiNLPAdapter } from "./adapters/GeminiNLPAdapter";
 import { NativeSpeechToTextAdapter } from "./adapters/NativeSpeechToTextAdapter";
 import { NominatimGeocodingAdapter } from "./adapters/NominatimGeocodingAdapter";
+import { GooglePlacesGeocodingAdapter } from "./adapters/GooglePlacesGeocodingAdapter";
 import { ExpoLocationGeofencingService } from "./adapters/ExpoLocationGeofencingService";
 import { LocalHebrewNLPAdapter } from "./adapters/LocalHebrewNLPAdapter";
 import { HybridNLPAdapter } from "./adapters/HybridNLPAdapter";
@@ -96,13 +97,12 @@ export class ProviderFactory {
     }
   }
 
-  createGeocodingService(): IGeocodingService {
-    switch (this.baseEnvironment.geocodingProvider) {
-      case "nominatim":
-      case "mock":
-      default:
-        return new NominatimGeocodingAdapter(this.baseEnvironment);
+  createGeocodingService(userSettings?: UserSettings | null): IGeocodingService {
+    const googleKey = userSettings?.googlePlacesApiKey?.trim();
+    if (googleKey) {
+      return new GooglePlacesGeocodingAdapter(googleKey);
     }
+    return new NominatimGeocodingAdapter(this.baseEnvironment);
   }
 
   createSpeechToTextService(userSettings?: UserSettings | null): ISpeechToTextService {

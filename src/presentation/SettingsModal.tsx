@@ -34,6 +34,8 @@ export function SettingsModal({ visible, initialSettings, onCancel, onSave }: Se
   const [isKeyVisible, setIsKeyVisible] = useState(false);
   const [mode, setMode] = useState<UserSettings["nlpProviderPreference"]>(initialSettings.nlpProviderPreference);
   const [model, setModel] = useState(initialSettings.geminiModel ?? "");
+  const [googleKey, setGoogleKey] = useState(initialSettings.googlePlacesApiKey ?? "");
+  const [isGoogleKeyVisible, setIsGoogleKeyVisible] = useState(false);
   const [notificationStyle, setNotificationStyle] = useState(initialSettings.defaultNotificationStyle);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -42,8 +44,10 @@ export function SettingsModal({ visible, initialSettings, onCancel, onSave }: Se
       setApiKey(initialSettings.geminiApiKey ?? "");
       setMode(initialSettings.nlpProviderPreference);
       setModel(initialSettings.geminiModel ?? "");
+      setGoogleKey(initialSettings.googlePlacesApiKey ?? "");
       setNotificationStyle(initialSettings.defaultNotificationStyle);
       setIsKeyVisible(false);
+      setIsGoogleKeyVisible(false);
     }
   }, [visible, initialSettings]);
 
@@ -55,6 +59,7 @@ export function SettingsModal({ visible, initialSettings, onCancel, onSave }: Se
         geminiApiKey: apiKey.trim(),
         nlpProviderPreference: mode,
         geminiModel: model.trim(),
+        googlePlacesApiKey: googleKey.trim(),
         defaultNotificationStyle: notificationStyle,
       });
       onCancel();
@@ -137,6 +142,30 @@ export function SettingsModal({ visible, initialSettings, onCancel, onSave }: Se
               <Text style={styles.optionHelp}>{option.help}</Text>
             </SelectableCard>
           ))}
+        </GlassSurface>
+
+        {/* Google Places key — optional, for finding businesses */}
+        <GlassSurface radius={radii.lg} style={styles.section}>
+          <Text style={styles.sectionTitle}>חיפוש מקומות ועסקים (אופציונלי)</Text>
+          <Text style={styles.sectionHelp}>
+            ברירת המחדל (OpenStreetMap) מוצאת בעיקר רחובות וערים. כדי למצוא עסקים ("רמי לוי חדרה", "תחנת דלק סדש") הזן מפתח
+            Google עם Places API מופעל — קריאה רגילה בזמן ריצה, לא נשמר בבנייה.
+          </Text>
+          <View style={styles.keyRow}>
+            <Pressable onPress={() => setIsGoogleKeyVisible((v) => !v)} style={styles.toggleButton}>
+              <Text style={styles.toggleButtonText}>{isGoogleKeyVisible ? "הסתר" : "הצג"}</Text>
+            </Pressable>
+            <View style={styles.keyInput}>
+              <TextField
+                value={googleKey}
+                onChangeText={setGoogleKey}
+                placeholder="מפתח Google (אופציונלי)..."
+                secureTextEntry={!isGoogleKeyVisible}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          </View>
         </GlassSurface>
 
         {/* Default notification style */}

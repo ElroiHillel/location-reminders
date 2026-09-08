@@ -46,11 +46,20 @@ class DynamicSpeechToTextService implements SpeechToTextService {
   }
 }
 
+class DynamicGeocodingService implements GeocodingService {
+  constructor(private readonly resolver: () => GeocodingService) {}
+
+  geocode(query: Parameters<GeocodingService["geocode"]>[0]) {
+    return this.resolver().geocode(query);
+  }
+}
+
 export class CompositionRoot {
   private readonly providerFactory = new ProviderFactory();
   private activeUserSettings: UserSettings;
   private activeNlpService: NaturalLanguageParserService;
   private activeSpeechToTextService: SpeechToTextService;
+  private activeGeocodingService: GeocodingService;
 
   readonly reminderRepository: ReminderRepository;
   readonly savedLocationRepository: SavedLocationRepository;
@@ -95,8 +104,10 @@ export class CompositionRoot {
 
     this.activeSpeechToTextService = this.providerFactory.createSpeechToTextService(this.activeUserSettings);
 
+    this.activeGeocodingService = this.providerFactory.createGeocodingService(this.activeUserSettings);
+
     this.nlpService = new DynamicNlpService(() => this.activeNlpService);
-    this.geocodingService = this.providerFactory.createGeocodingService();
+    this.geocodingService = new DynamicGeocodingService(() => this.activeGeocodingService);
     this.speechToTextService = new DynamicSpeechToTextService(() => this.activeSpeechToTextService);
     this.geofencingService = this.providerFactory.createGeofencingService();
     this.bluetoothTriggerService = this.providerFactory.createBluetoothTriggerService();
@@ -165,6 +176,7 @@ export class CompositionRoot {
       bluetoothDeviceRepository: this.bluetoothDeviceRepository,
     });
     this.activeSpeechToTextService = this.providerFactory.createSpeechToTextService(settings);
+    this.activeGeocodingService = this.providerFactory.createGeocodingService(settings);
   }
 
   private async rearmGeofences(reminders: Reminder[]): Promise<void> {

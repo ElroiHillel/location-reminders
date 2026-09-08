@@ -17,12 +17,12 @@ export class NominatimGeocodingAdapter implements IGeocodingService {
     const url = new URL("https://nominatim.openstreetmap.org/search");
     url.searchParams.set("format", "jsonv2");
     url.searchParams.set("q", query.text);
-    url.searchParams.set("limit", "1");
+    url.searchParams.set("limit", "5");
     url.searchParams.set("addressdetails", "1");
-
-    if (query.preferredLanguage) {
-      url.searchParams.set("accept-language", query.preferredLanguage);
-    }
+    // Bias results to Israel so a local place/street isn't shadowed by a
+    // similarly-named place abroad.
+    url.searchParams.set("countrycodes", "il");
+    url.searchParams.set("accept-language", query.preferredLanguage ?? "he");
 
     if (this.environment.nominatimEmail) {
       url.searchParams.set("email", this.environment.nominatimEmail);
@@ -40,18 +40,19 @@ export class NominatimGeocodingAdapter implements IGeocodingService {
     }
 
     const results = (await response.json()) as NominatimSearchResult[];
-    const result = results[0];
-
-    if (!result) {
+    if (results.length === 0) {
       return null;
     }
 
+    // Pick the most "important" result (Nominatim's relevance score).
+    const best = results.reduce((top, item) => ((item.importance ?? 0) > (top.importance ?? 0) ? item : top), results[0]);
+
     return {
-      latitude: Number(result.lat),
-      longitude: Number(result.lon),
-      address: result.display_name,
+      latitude: Number(best.lat),
+      longitude: Number(best.lon),
+      address: best.display_name,
       provider: "nominatim",
-      confidence: this.resolveConfidence(result.importance),
+      confidence: this.resolveConfidence(best.importance),
     };
   }
 
